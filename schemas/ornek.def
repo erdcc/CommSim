@@ -1,0 +1,126 @@
+# =====================================================================
+#  Örnek mesaj şeması (DSL v2). Derleme gerektirmez: dosyayı değiştirip
+#  araç çubuğundaki "Şemaları yeniden yükle" düğmesine basmanız yeterli.
+# =====================================================================
+#
+# Bloklar
+#   endian big|little        Varsayılan byte sırası (varsayılan: big).
+#   header                   Her mesajın başındaki alanlar. Yazılmazsa eski
+#                            messages.def gibi "uint16 id @id" kabul edilir.
+#   footer                   Her mesajın sonundaki alanlar (sabit boylu olmalı).
+#   struct <AD>              Liste elemanı ya da gömülü yapı şablonu.
+#   message <id> <AD>        Mesaj; id ondalık ya da 0x.. olabilir.
+#
+# Alan satırı:   <tip> <ad> [@rol] [= varsayılan]
+#   ('=' iki yanında boşluk olmalı; header/footer'da varsayılan sabit kabul
+#    edilir ve alınan mesajda farklıysa uyarı verilir.)
+#
+# Tipler
+#   int8 uint8 int16 uint16 int32 uint32 int64 uint64   (eski: int = int32)
+#   float32 float64                                       (eski: double = float64)
+#   bool                                                  (1 byte)
+#   Sonuna le/be eklenirse alan bazında sıra: uint16le, float32be
+#   string            uint16 uzunluk önekli UTF-8 (eski biçim)
+#   string[16]        sabit 16 byte, sıfırla doldurulur
+#   string[uint8]     uint8 uzunluk önekli
+#   string[len]       uzunluğu önceki 'len' alanından (otomatik doldurulur)
+#   string[*]         mesajın sonuna kadar (yalnızca son alan)
+#   cstring           sıfır byte ile biten
+#   bytes[...]        string ile aynı uzunluk biçimleri; hex olarak düzenlenir
+#   uint16[8] / uint16[n] / uint16[uint8] / uint16[*]   sayı dizisi
+#   enum <ad> A|B|C               1 byte, değerler 0,1,2 (eski biçim)
+#   enum:uint16 <ad> A=1|B=5|C    taban tipi ve açık değerler (C = 6)
+#   list <STRUCT> <ad>            uint16 adet önekli liste (eski biçim)
+#   STRUCT[...] <ad>              liste, adet biçimi yukarıdaki gibi
+#   STRUCT <ad>                   gömülü yapı
+#   bits8 / bits16 / bits32 <ad>  bit grubu; alt alanları bir sonraki satırlarda,
+#                                 grup satırından DAHA İÇERİDEN yazılır:
+#       bit    <ad>               tek bit (true/false)
+#       uintN  <ad>  / intN <ad>  N bitlik sayı (int: işaretli)
+#       enumN  <ad> A|B|C         N bitlik enum
+#       padN                      kullanılmayan N bit
+#     Varsayılan: ilk alt alan bit 0'dan (LSB) başlar. bits8(msb) ile en yüksek
+#     bitten başlanır. bits16le gibi sonek grubun byte sırasını belirler.
+#
+# Roller (değeri program doldurur, gelen mesajda doğrulanır)
+#   @id               header'da mesaj id'si
+#   @length           mesaj gövdesinin byte sayısı   (@length(body) ile aynı)
+#   @length(all)      tüm çerçevenin byte sayısı
+#   @length(after)    bu alandan sonra gelen byte sayısı
+#   @sum8 @xor8 @crc16 (Modbus) @crc16ccitt @crc32
+#                     kendinden önceki tüm byte'lar üzerinden checksum
+# Rol parametreleri (boşluksuz yazılır):
+#   @crc16(from=1)            checksum'a baştaki 1 byte (örn. sync) katılmaz
+#   @length(all,adjust=-2)    hesaplanan uzunluğa -2 eklenir
+#
+# Bağlantı ayarlarındaki "Bu bağlantı için şema ayarları" bölümünden byte sırası,
+# checksum algoritması/başlangıcı ve uzunluk türü/düzeltmesi dosyaya dokunmadan
+# bağlantı bazında değiştirilebilir. Görsel düzenleme için: Şema düzenleyici.
+# =====================================================================
+
+endian big
+
+header
+  uint8  sync    = 0xA5
+  uint8  version = 1
+  uint16 msgId   @id
+  uint16 seq
+  uint16 len     @length
+
+footer
+  uint16 crc     @crc16ccitt
+
+struct HEDEF
+  uint32  trackId
+  float64 lat
+  float64 lon
+  float32 alt
+  enum    identity PENDING|FRIEND|HOSTILE|NEUTRAL|UNKNOWN = UNKNOWN
+
+message 1 HEARTBEAT
+  uint32     uptime
+  enum:uint8 status OK|DEGRADED|FAIL = OK
+
+message 2 KONUM
+  uint32  platformId = 100
+  float64 lat        = 39.9334
+  float64 lon        = 32.8597
+  float32 altitude
+  int16   heading
+  uint16  speed
+
+message 3 METIN
+  string[16]    sender = SIM
+  string[uint8] text   = Merhaba
+
+message 4 KOMUT
+  uint32           platformId = 100
+  enum:uint16      command    GOTO=1|HOLD=2|RTB=3|ENGAGE=10 = HOLD
+  float64          lat
+  float64          lon
+  bool             urgent
+
+message 5 HEDEF_LISTESI
+  uint8          count
+  HEDEF[count]   tracks
+
+message 6 REGISTERLAR
+  uint16      start
+  uint8       n
+  uint16[n]   values
+
+message 7 HAM_BLOK
+  uint8     kind
+  bytes[*]  data
+
+message 8 DURUM_BAYRAKLARI
+  bits8  bayraklar
+    bit    alarm
+    bit    hazir = true
+    uint3  mod   = 2
+    enum2  seviye DUSUK|ORTA|YUKSEK = ORTA
+    pad1
+  bits16 hata_kodu
+    uint4  grup
+    uint12 kod
+  uint16 sicaklik

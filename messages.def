@@ -1,0 +1,73 @@
+# Mesaj tanimlari. Derleme gerektirmeden yeni mesaj/alan eklenebilir.
+#
+#   message <id> <ISIM>
+#     <tip> <alan> [@node_ozelligi] [= varsayilan]
+#
+# Tipler: int, double, bool, string, enum (enum alan A|B|C = A),
+#         intlist (tam sayi listesi; formda virgulle yazilir: 2,5,7)
+#
+# Tum mesajlar haritadaki ayni node nesnesinden turetilir: bir node secilince,
+# alan adi (veya @ile verilen ad) node ozelligiyle eslesen alanlar otomatik
+# doldurulur. Haritaya iki tur node eklenir: PLATFORM ve RADAR.
+#
+# Haritadaki her PLATFORM bir TCP istemci gate'idir (Bağlan ile sunucuya baglanir).
+# Haritadaki RADARLAR tum platformlarca tespit edilmis sayilir; YAYIN_LISTESI
+# mesajiyla her platform kendi gate'inden radar kayitlarini sunucuya gonderir.
+#
+# Node ozellikleri:
+#   nodeId, nodeType (PLATFORM|RADAR), name, identity,
+#   lat, lon, altitude, speed, heading
+
+# 'struct': liste alanlarinin eleman sablonu. 'list <STRUCT> <alan>' ile kullanilir.
+# 'radars' listesi haritadaki TUM radar node'larindan otomatik uretilir
+# (her kayit alanlari node ozelliklerinden dolar). 'platforms' de ayni sekilde.
+struct RADAR_KAYDI
+  int    nodeId
+  string name
+  enum   identity PENDING|FRIEND|HOSTILE|NEUTRAL|UNKNOWN = UNKNOWN
+  double lat
+  double lon
+  double altitude
+
+message 1 NODE_UPDATE
+  int    nodeId   = 1
+  enum   nodeType PLATFORM|RADAR = PLATFORM
+  string name     = ALPHA
+  enum   identity PENDING|FRIEND|HOSTILE|NEUTRAL|UNKNOWN = UNKNOWN
+  double lat      = 39.9334
+  double lon      = 32.8597
+  double altitude = 0
+  double speed    = 0
+  double heading  = 0
+
+message 2 NODE_DELETE
+  int  nodeId   = 1
+  enum nodeType PLATFORM|RADAR = PLATFORM
+
+message 3 TEXT_MESSAGE
+  int    nodeId   = 1
+  enum   nodeType PLATFORM|RADAR = PLATFORM
+  string sender   @name = SIM
+  string text     = Merhaba
+
+message 4 COMMAND
+  int    nodeId   = 1
+  enum   nodeType PLATFORM|RADAR = PLATFORM
+  enum   command  GOTO|HOLD|RTB|ENGAGE = HOLD
+  double lat      = 0
+  double lon      = 0
+  bool   urgent   = false
+
+message 5 NAVIGASYON
+  int    nodeId   = 1
+  enum   nodeType PLATFORM|RADAR = PLATFORM
+  double lat      = 39.9334
+  double lon      = 32.8597
+  double altitude = 0
+  double speed    = 0
+  double heading  = 0
+
+message 6 YAYIN_LISTESI
+  int  nodeId   = 1
+  enum nodeType PLATFORM|RADAR = PLATFORM
+  list RADAR_KAYDI radars

@@ -1,0 +1,9 @@
+harita-modulu, ucuncu taraf bilesenler icerir:
+
+1) OpenMap 5.1.15 (BBN Technologies) - degistirilmeden, nesne kodu olarak jar'a dahil edilmistir.
+   Lisans: META-INF/licenses/OPENMAP-LICENSE.txt
+   OpenMap'i nereden edinebileceginiz: https://github.com/openmap-java/openmap  (etiket v5.1.15)
+
+2) Harita verisi (harita/data/ altinda):
+   - bluemarble.jpg : NASA Visible Earth, Blue Marble Next Generation (Temmuz 2004, 5400x2700).
+   - dcwpo-browse.shp / .ssx : OpenMap deposundaki share/data/shape/dcwpo-browse.shp.

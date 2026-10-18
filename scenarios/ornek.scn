@@ -1,0 +1,38 @@
+# Tüm örnek bağlantıları kullanan senaryo (Senaryo sekmesinde "Aç…" ile yükleyin).
+# Komut listesi için Yardım > Senaryo komutları.
+
+start "Örnek TCP sunucu"
+start "Örnek TCP istemci"
+start "Örnek Modbus slave"
+start "Örnek Modbus master"
+start "Örnek SNMP agent"
+start "Örnek SNMP manager"
+wait 300
+
+# --- Şema mesajı (schemas/ornek.def) ---
+send "Örnek TCP istemci" KOMUT command=GOTO lat=41.01 lon=28.97 urgent=true
+waitfor "Örnek TCP sunucu" KOMUT
+expect "Örnek TCP sunucu" KOMUT command=GOTO urgent=true lat=41.01
+
+repeat 3
+  send "Örnek TCP istemci" HEARTBEAT uptime=42 başlık.seq=7
+  waitfor "Örnek TCP sunucu" HEARTBEAT
+  wait 200
+end
+expect "Örnek TCP sunucu" HEARTBEAT uptime=42 başlık.seq=7
+
+# --- Modbus TCP ---
+mbset "Örnek Modbus slave" hr 20 1,2,3
+modbus "Örnek Modbus master" read 3 20 3
+waitfor "Örnek Modbus master" FC03
+modbus "Örnek Modbus master" write 30 500
+modbus "Örnek Modbus master" coil 5 1
+wait 200
+
+# --- SNMP ---
+snmp "Örnek SNMP manager" set 1.3.6.1.2.1.1.5.0 OCTET_STRING senaryo-cihaz
+snmp "Örnek SNMP manager" get 1.3.6.1.2.1.1.5.0
+trap "Örnek SNMP agent" 1.3.6.1.4.1.99999.0.1 1.3.6.1.4.1.99999.1.1.0
+waitfor "Örnek SNMP manager" TRAP
+
+log Tüm protokoller denendi

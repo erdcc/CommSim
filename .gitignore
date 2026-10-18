@@ -1,0 +1,15 @@
+# derleme ciktilari
+target/
+out/
+harita-lib/dist/
+harita-modulu-java8.zip
+
+# kayitlar ve gecici dosyalar
+*.rec
+*.log
+
+# isletim sistemi / IDE
+.DS_Store
+.idea/
+*.iml
+.vscode/
