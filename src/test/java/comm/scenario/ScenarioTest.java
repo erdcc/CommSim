@@ -249,4 +249,170 @@ class ScenarioTest {
         assertTrue(e.getMessage().contains("=="), e.getMessage());
         e = assertThrows(ScenarioException.class, () -> Scenario.parse("var 1x = 5\n"));
     }
+    // ---- while, break, fonksiyonlar, include ----
+
+    @Test void whileBreakFunctionsAndInclude(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+        java.nio.file.Files.write(dir.resolve("ortak.scn"), String.join("\n",
+                "function selam ad",
+                "  log merhaba ${ad}",
+                "end").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String script = String.join("\n",
+                "include ortak.scn",
+                "var n = 0",
+                "while ${n} < 100",
+                "  var n = ${n} + 1",
+                "  if ${n} == 5",
+                "    break",
+                "  end",
+                "end",
+                "assert ${n} == 5",
+                "repeat 10",
+                "  var k = counter(1, 1)",
+                "  if ${k} == 3",
+                "    break",
+                "  end",
+                "end",
+                "assert ${k} == 3",
+                "var ad = dış",
+                "call selam \"dünya\"",
+                "assert ${ad} == dış",   // parametre cagridan sonra eski degerine doner
+                "call kare 7",
+                "assert ${sonuc} == 49",
+                "call erken",
+                "log son",
+                "function kare x",
+                "  var sonuc = ${x} * ${x}",
+                "end",
+                "function erken",
+                "  log önce",
+                "  return",
+                "  log gelmez",
+                "end");
+        List<String> out = new CopyOnWriteArrayList<>();
+        CountDownLatch done = new CountDownLatch(1);
+        ScenarioRunner r = new ScenarioRunner();
+        r.start(script, dir, new TestContext(), (line, err) -> out.add((err ? "E " : "  ") + line), done::countDown);
+        assertTrue(done.await(10, TimeUnit.SECONDS), "bitmedi: " + out);
+        String all = String.join("\n", out);
+        assertTrue(all.contains("merhaba dünya"), all);
+        assertTrue(all.contains("önce") && !all.contains("gelmez") && all.contains("son"), all);
+        assertEquals(0, r.failures(), all);
+        assertEquals(4, r.checks(), all);
+
+        ScenarioException e = assertThrows(ScenarioException.class, () -> Scenario.parseProgram("call yok\n", null));
+        assertTrue(e.getMessage().contains("tanımsız fonksiyon"), e.getMessage());
+        e = assertThrows(ScenarioException.class, () -> Scenario.parseProgram("function f a\nend\ncall f\n", null));
+        assertTrue(e.getMessage().contains("1 argüman"), e.getMessage());
+        e = assertThrows(ScenarioException.class, () -> Scenario.parse("break\n"));
+        assertTrue(e.getMessage().contains("break"), e.getMessage());
+        e = assertThrows(ScenarioException.class, () -> Scenario.parse("repeat 1\nfunction f\nend\nend\n"));
+        assertTrue(e.getMessage().contains("en dış"), e.getMessage());
+        e = assertThrows(ScenarioException.class, () -> Scenario.parseProgram("include yok.scn\n", dir));
+        assertTrue(e.getMessage().contains("include"), e.getMessage());
+        java.nio.file.Files.write(dir.resolve("hatali.scn"), "log a\nfoo\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        e = assertThrows(ScenarioException.class, () -> Scenario.parseProgram("include hatali.scn\n", dir));
+        assertTrue(e.getMessage().startsWith("hatali.scn satır 2"), e.getMessage());
+    }
+
+    @Test void recursionDepthIsLimited() throws Exception {
+        String all = String.join("\n", runScript("call f\nfunction f\n  call f\nend\n"));
+        assertTrue(all.contains("çağrı derinliği"), all);
+        assertTrue(all.contains("errored=true"), all);
+    }
+
+    // ---- Groovy ----
+
+    private TcpServerEndpoint tcpPair(String serverName, String clientName) throws Exception {
+        bus.addListener(new TrafficBus.Listener() {
+            @Override public void onEntry(LogEntry e) {
+                if (e.dir == Direction.RX && e.decoded != null && e.decoded.ok()) {
+                    lastRx.computeIfAbsent(e.endpoint, k -> new ConcurrentHashMap<>()).put(e.decoded.message.name, e.decoded);
+                }
+            }
+
+            @Override public void onStateChanged(Endpoint endpoint) { }
+        });
+        Schema schema = SchemaParser.parse(Paths.get("schemas/ornek.def"));
+        EndpointConfig sc = new EndpointConfig();
+        sc.localAddress = "127.0.0.1";
+        sc.localPort = 0;
+        sc.framing.type = FramingConfig.Type.LENGTH_PREFIX;
+        TcpServerEndpoint server = add(serverName, new TcpServerEndpoint(sc, bus));
+        server.setSchema(schema);
+        server.start();
+        EndpointConfig cc = new EndpointConfig();
+        cc.kind = EndpointConfig.Kind.TCP_CLIENT;
+        cc.remotePort = server.boundPort();
+        cc.framing.type = FramingConfig.Type.LENGTH_PREFIX;
+        add(clientName, new TcpClientEndpoint(cc, bus)).setSchema(schema);
+        return server;
+    }
+
+    private List<String> runGroovy(ScenarioRunner r, String code, long waitSec) throws Exception {
+        List<String> out = new CopyOnWriteArrayList<>();
+        CountDownLatch done = new CountDownLatch(1);
+        r.startGroovy(code, "test.groovy", null, new TestContext(), (line, err) -> out.add((err ? "E " : "  ") + line), done::countDown);
+        assertTrue(done.await(waitSec, TimeUnit.SECONDS), "bitmedi: " + out);
+        return out;
+    }
+
+    @Test void groovyScriptDrivesRealEndpoints() throws Exception {
+        TcpServerEndpoint server = tcpPair("sunucu", "Örnek istemci");
+        String code = String.join("\n",
+                "def istemci = 'Örnek istemci'",
+                "start istemci",
+                "for (hiz in [100, 110, 120]) {",
+                "    send istemci, 'KONUM', speed: hiz, heading: -45",
+                "    def m = waitFor('sunucu', 'KONUM', 2000)",
+                "    check m.speed == \"$hiz\", \"hız $hiz\"",
+                "}",
+                "expect 'sunucu', 'KONUM', speed: 120, heading: -45",
+                "def atama = [tracks: 2]",
+                "['FRIEND', 'HOSTILE'].eachWithIndex { v, i -> atama[\"tracks[$i].identity\"] = v }",
+                "send istemci, 'HEDEF_LISTESI', atama",
+                "waitFor 'sunucu', 'HEDEF_LISTESI'",
+                "check last('sunucu', 'HEDEF_LISTESI')['tracks[1].identity'] == 'HOSTILE', 'liste'",
+                "vars.hiz = '77'",
+                "dsl '''send \"Örnek istemci\" KONUM speed=${hiz}",
+                "waitfor sunucu KONUM 2000",
+                "expect sunucu KONUM speed=77'''",
+                "check sim.checks == 7, 'sayaç'",
+                "log 'tamam'");
+        ScenarioRunner r = new ScenarioRunner();
+        String all = String.join("\n", runGroovy(r, code, 20));
+        assertTrue(all.contains("tamam"), all);
+        assertEquals(0, r.failures(), all);
+        assertEquals(8, r.checks(), all);
+        assertTrue(!r.errored(), all);
+        assertEquals(5, server.stats().rxFrames(), all);
+    }
+
+    @Test void groovyErrorsReportScriptLines() throws Exception {
+        ScenarioException e = assertThrows(ScenarioException.class, () -> new ScenarioRunner().startGroovy(
+                "log 'a'\nif (true {\n", "kirik.groovy", null, new TestContext(), (l, x) -> { }, null));
+        assertTrue(e.getMessage().startsWith("kirik.groovy satır 2"), e.getMessage());
+
+        ScenarioRunner r = new ScenarioRunner();
+        String all = String.join("\n", runGroovy(r, "log 'bir'\n\nstart 'yok'\nlog 'iki'\n", 10));
+        assertTrue(all.contains("test.groovy satır 3: bağlantı bulunamadı: yok"), all);
+        assertTrue(r.errored() && !all.contains("iki"), all);
+
+        r = new ScenarioRunner();
+        all = String.join("\n", runGroovy(r, "check 1 + 1 == 3, 'aritmetik'\nfail 'bilerek'\nlog 'gelmez'\n", 10));
+        assertTrue(all.contains("✗ aritmetik") && all.contains("✗ fail: bilerek") && !all.contains("gelmez"), all);
+        assertEquals(2, r.failures());
+        assertTrue(!r.errored());
+    }
+
+    @Test void stopInterruptsGroovyLoop() throws Exception {
+        ScenarioRunner r = new ScenarioRunner();
+        List<String> out = new CopyOnWriteArrayList<>();
+        CountDownLatch done = new CountDownLatch(1);
+        r.startGroovy("long n = 0\nwhile (true) { n++ }\n", "dongu.groovy", null, new TestContext(),
+                (line, err) -> out.add(line), done::countDown);
+        Thread.sleep(300);
+        r.stop();
+        assertTrue(done.await(5, TimeUnit.SECONDS), "durmadı: " + out);
+        assertTrue(String.join("\n", out).contains("durduruldu"), out.toString());
+    }
 }

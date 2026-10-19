@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Arayuzsuz calistirici: projeyi yukler, senaryoyu calistirir, sonucu cikis koduyla bildirir.
- * <pre>java -jar commsim.jar --run proje.json [senaryo.scn] [--start-all] [--timeout 120] [--verbose]</pre>
+ * <pre>java -jar commsim.jar --run proje.json [senaryo.scn|senaryo.groovy] [--start-all] [--timeout 120] [--verbose]</pre>
  * Cikis kodu: 0 basarili, 1 kontrol (expect/assert/fail) basarisiz, 2 hata/zaman asimi/kullanim hatasi.
  */
 public final class HeadlessRunner implements ScenarioContext {
@@ -72,12 +72,12 @@ public final class HeadlessRunner implements ScenarioContext {
                 }
             }
         } catch (RuntimeException e) {
-            out.println("Kullanım: java -jar commsim.jar --run proje.json [senaryo.scn] [--start-all] [--timeout sn] [--verbose]");
+            out.println("Kullanım: java -jar commsim.jar --run proje.json [senaryo.scn|senaryo.groovy] [--start-all] [--timeout sn] [--verbose]");
             out.println("Hata: " + e.getMessage());
             return ERROR;
         }
         if (project == null) {
-            out.println("Kullanım: java -jar commsim.jar --run proje.json [senaryo.scn] [--start-all] [--timeout sn] [--verbose]");
+            out.println("Kullanım: java -jar commsim.jar --run proje.json [senaryo.scn|senaryo.groovy] [--start-all] [--timeout sn] [--verbose]");
             return ERROR;
         }
         HeadlessRunner r = new HeadlessRunner(out);
@@ -97,9 +97,13 @@ public final class HeadlessRunner implements ScenarioContext {
     private int run(Path projectFile, Path scenarioFile, boolean startAll, boolean verbose, int timeoutSec) {
         ProjectFile p;
         String script;
+        boolean groovy;
         try {
             p = ProjectFile.load(projectFile);
             script = scenarioFile != null ? new String(Files.readAllBytes(scenarioFile), StandardCharsets.UTF_8) : p.scenario;
+            groovy = scenarioFile != null
+                    ? scenarioFile.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".groovy")
+                    : "groovy".equals(p.scenarioLanguage);
         } catch (IOException e) {
             line("HATA dosya okunamadı: " + e.getMessage());
             return ERROR;
@@ -138,7 +142,14 @@ public final class HeadlessRunner implements ScenarioContext {
             ScenarioRunner runner = new ScenarioRunner();
             CountDownLatch done = new CountDownLatch(1);
             try {
-                runner.start(script, this, (text, error) -> line((error ? "" : "") + text), done::countDown);
+                ScenarioRunner.Output o = (text, error) -> line(text);
+                Path base = scenarioFile != null ? scenarioFile.toAbsolutePath().getParent() : projectFile.toAbsolutePath().getParent();
+                if (groovy) {
+                    String name = scenarioFile != null ? scenarioFile.getFileName().toString() : "proje-senaryosu.groovy";
+                    runner.startGroovy(script, name, base, this, o, done::countDown);
+                } else {
+                    runner.start(script, base, this, o, done::countDown);
+                }
             } catch (ScenarioException e) {
                 line("HATA sözdizimi: " + e.getMessage());
                 return ERROR;

@@ -1,0 +1,15 @@
+# Ortak komut grupları: diğer senaryolar "include ortak.scn" ile kullanır.
+
+# Bir KONUM gönderip sunucuda bekler ve hızı doğrular.
+function konum_gonder hiz
+  send "Örnek TCP istemci" KONUM speed=${hiz} heading=45
+  waitfor "Örnek TCP sunucu" KONUM 2000
+  expect "Örnek TCP sunucu" KONUM speed=${hiz}
+end
+
+# Tüm TCP örnek bağlantılarını başlatır.
+function tcp_baslat
+  start "Örnek TCP sunucu"
+  start "Örnek TCP istemci"
+  wait 300
+end

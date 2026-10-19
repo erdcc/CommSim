@@ -59,12 +59,29 @@ public final class ScenarioRunner {
     private final java.util.Map<Step, comm.runtime.Expr[]> compiled = new java.util.IdentityHashMap<>();
     private volatile ScenarioContext ctx;
 
-    /** exit komutu: senaryoyu basariyla bitirir. */
-    private static final class Exit extends RuntimeException {
+    /** Akis denetimi: exit, break ve return komutlari bu istisnalarla yukari tasinir. */
+    private static class Flow extends RuntimeException {
         private static final long serialVersionUID = 1L;
 
-        Exit() { super(null, null, false, false); }
+        Flow() { super(null, null, false, false); }
     }
+
+    /** exit komutu: senaryoyu basariyla bitirir. */
+    private static final class Exit extends Flow {
+        private static final long serialVersionUID = 1L;
+    }
+
+    private static final class Break extends Flow {
+        private static final long serialVersionUID = 1L;
+    }
+
+    private static final class Return extends Flow {
+        private static final long serialVersionUID = 1L;
+    }
+
+    private static final int CALL_DEPTH_MAX = 100;
+    private volatile java.util.Map<String, Scenario.Function> functions = java.util.Collections.emptyMap();
+    private int callDepth;
 
     /** Son calismanin kontrol sayisi. */
     public int checks() { return checks; }
@@ -91,8 +108,39 @@ public final class ScenarioRunner {
      * @throws ScenarioException sozdizimi hatasi (calistirmadan once)
      */
     public synchronized void start(String text, ScenarioContext ctx, Output out, Runnable onDone) throws ScenarioException {
+        start(text, null, ctx, out, onDone);
+    }
+
+    /** @param baseDir include yollarinin klasoru (senaryo dosyasinin klasoru); null ise calisma klasoru */
+    public synchronized void start(String text, java.nio.file.Path baseDir, ScenarioContext ctx, Output out, Runnable onDone)
+            throws ScenarioException {
         if (thread != null) throw new ScenarioException("senaryo zaten çalışıyor");
-        List<Step> steps = Scenario.parse(text);
+        Scenario.Program program = Scenario.parseProgram(text, baseDir);
+        functions = program.functions;
+        launch(ctx, out, onDone, () -> run(program.steps, ctx, out));
+    }
+
+    /**
+     * Groovy betigini derler ve calistirir. Betik, {@link Api} yontemlerini dogrudan cagirir:
+     * start("..."), send("...", "KONUM", speed: 120), waitFor(...), check(...).
+     * @param fileName hata mesajlarinda gorunen ad (orn. test.groovy)
+     * @throws ScenarioException derleme hatasi (calistirmadan once)
+     */
+    public synchronized void startGroovy(String code, String fileName, java.nio.file.Path baseDir, ScenarioContext ctx,
+                                         Output out, Runnable onDone) throws ScenarioException {
+        if (thread != null) throw new ScenarioException("senaryo zaten çalışıyor");
+        functions = java.util.Collections.emptyMap();
+        GroovySupport.Compiled compiled = GroovySupport.compile(code, fileName, baseDir);
+        launch(ctx, out, onDone, () -> compiled.run(new Api(ctx, out), () -> stopRequested));
+    }
+
+    /** Calistirilacak govde. */
+    private interface Body {
+        void run() throws InterruptedException, ScenarioException;
+    }
+
+    private void launch(ScenarioContext ctx, Output out, Runnable onDone, Body body) {
+        callDepth = 0;
         stopRequested = false;
         checks = 0;
         failures = 0;
@@ -112,7 +160,7 @@ public final class ScenarioRunner {
                 out.line("Senaryo başladı", false);
                 String how = "bitti";
                 try {
-                    run(steps, ctx, out);
+                    body.run();
                 } catch (Exit x) {
                     how = "exit ile bitti";
                 }
@@ -139,25 +187,99 @@ public final class ScenarioRunner {
         for (Step s : steps) {
             if (stopRequested) throw new InterruptedException();
             if (s.command.equals("repeat")) {
-                for (int i = 0; i < s.count; i++) run(s.body, ctx, out);
+                int n = s.count >= 0 ? s.count : repeatCount(s);
+                try {
+                    for (int i = 0; i < n; i++) run(s.body, ctx, out);
+                } catch (Break b) {
+                    // dongu bitti
+                }
                 continue;
             }
             try {
-                if (s.command.equals("if")) {
-                    run(condition(s) ? s.body : s.elseBody, ctx, out);
-                    continue;
+                switch (s.command) {
+                    case "if":
+                        run(condition(s) ? s.body : s.elseBody, ctx, out);
+                        continue;
+                    case "while": {
+                        int n = 0;
+                        try {
+                            while (condition(s)) {
+                                if (++n > Scenario.WHILE_MAX) {
+                                    throw new IllegalStateException("while " + Scenario.WHILE_MAX + " turu aştı (sonsuz döngü?)");
+                                }
+                                run(s.body, ctx, out);
+                            }
+                        } catch (Break b) {
+                            // dongu bitti
+                        }
+                        continue;
+                    }
+                    case "break":
+                        throw new Break();
+                    case "return":
+                        throw new Return();
+                    case "call":
+                        call(s, ctx, out);
+                        continue;
+                    default:
+                        exec(s, ctx, out);
                 }
-                exec(s, ctx, out);
-            } catch (Exit x) {
+            } catch (Flow x) {
                 throw x;
             } catch (RuntimeException | IOException e) {
                 String msg = e.getMessage() == null ? e.toString() : e.getMessage();
                 if (continueOnError) {
                     failures++;
-                    out.line("HATA satır " + s.line + " (" + s.command + "): " + msg + " — devam ediliyor", true);
+                    out.line("HATA " + s.where() + " (" + s.command + "): " + msg + " — devam ediliyor", true);
                     continue;
                 }
-                throw new ScenarioException("satır " + s.line + " (" + s.command + "): " + msg);
+                throw new ScenarioException(s.where() + " (" + s.command + "): " + msg);
+            }
+        }
+    }
+
+    /** "repeat ${n}" gibi ifadeli adet. */
+    private int repeatCount(Step s) throws ScenarioException {
+        String v;
+        try {
+            v = exprs(s, s.args.get(0))[0].eval(exprContext);
+        } catch (RuntimeException e) {
+            throw new ScenarioException(s.where() + " (repeat): " + e.getMessage());
+        }
+        try {
+            int n = (int) Math.round(Double.parseDouble(v.trim()));
+            if (n < 0) throw new ScenarioException(s.where() + " (repeat): adet negatif: " + n);
+            return n;
+        } catch (NumberFormatException e) {
+            throw new ScenarioException(s.where() + " (repeat): adet sayı değil: " + v);
+        }
+    }
+
+    /** Fonksiyonu cagirir: argumanlar parametre degiskenlerine yazilir, donuste eski degerler geri gelir. */
+    private void call(Step s, ScenarioContext ctx, Output out) throws InterruptedException, ScenarioException {
+        Scenario.Function f = functions.get(s.args.get(0));
+        if (f == null) throw new IllegalArgumentException("tanımsız fonksiyon: " + s.args.get(0));
+        if (callDepth >= CALL_DEPTH_MAX) throw new IllegalStateException("çağrı derinliği " + CALL_DEPTH_MAX + " aşıldı (sonsuz özyineleme?)");
+        String[] texts = s.args.subList(1, s.args.size()).toArray(new String[0]);
+        comm.runtime.Expr[] e = exprs(s, texts);
+        String[] values = new String[texts.length];
+        for (int i = 0; i < texts.length; i++) values[i] = e[i].eval(exprContext);
+        java.util.Map<String, String> saved = new java.util.HashMap<>();
+        for (int i = 0; i < f.params.size(); i++) {
+            String p = f.params.get(i);
+            saved.put(p, vars.get(p));
+            vars.put(p, values[i]);
+        }
+        callDepth++;
+        try {
+            run(f.body, ctx, out);
+        } catch (Return r) {
+            // fonksiyondan cikis
+        } finally {
+            callDepth--;
+            for (java.util.Map.Entry<String, String> x : saved.entrySet()) {
+                if (x.getValue() == null) vars.remove(x.getKey());
+                else vars.put(x.getKey(), x.getValue());
             }
         }
     }
@@ -346,7 +468,7 @@ public final class ScenarioRunner {
         }
     }
 
-    private void waitFor(Endpoint ep, String message, long timeoutMs) throws InterruptedException, IOException {
+    private LogEntry waitFor(Endpoint ep, String message, long timeoutMs) throws InterruptedException, IOException {
         long end = System.currentTimeMillis() + timeoutMs;
         synchronized (inbox) {
             while (true) {
@@ -354,7 +476,7 @@ public final class ScenarioRunner {
                     LogEntry e = it.next();
                     if (e.endpoint == ep && matches(e.decoded.message.name, message)) {
                         it.remove();
-                        return;
+                        return e;
                     }
                 }
                 if (stopRequested) throw new InterruptedException();
@@ -370,16 +492,19 @@ public final class ScenarioRunner {
         return actual.equalsIgnoreCase(wanted) || actual.toLowerCase(Locale.ROOT).startsWith(wanted.toLowerCase(Locale.ROOT));
     }
 
-    private void expect(ScenarioContext ctx, Endpoint ep, String message, Map<String, String> want, Output out) {
+    private boolean expect(ScenarioContext ctx, Endpoint ep, String message, Map<String, String> want, Output out) {
         Map<String, String> got = ctx.lastReceived(ep, message);
+        boolean all = true;
         for (Map.Entry<String, String> w : want.entrySet()) {
             checks++;
             String actual = got == null ? null : got.get(w.getKey());
             boolean ok = actual != null && sameValue(actual, w.getValue());
             if (!ok) failures++;
+            all &= ok;
             out.line((ok ? "✓ " : "✗ ") + ep.name() + " " + message + "." + w.getKey() + " = " + w.getValue()
                     + (ok ? "" : got == null ? " (mesaj hiç alınmadı)" : "  (alınan: " + actual + ")"), !ok);
         }
+        return all;
     }
 
     private static boolean sameValue(String a, String b) {
@@ -422,6 +547,187 @@ public final class ScenarioRunner {
         if (op.equals("get")) m.get(oids);
         else if (op.equals("getnext")) m.getNext(oids);
         else m.walk(oids.get(0));
+    }
+
+    // =====================================================================
+    //  Groovy betikleri icin API
+    // =====================================================================
+
+    /**
+     * Groovy betiklerinin cagirdigi islemler. Senaryo dilindeki komutlarin karsiligidir;
+     * kontroller (check/expect) senaryo sonunda ayni sekilde sayilir.
+     */
+    public final class Api {
+        private final ScenarioContext ctx;
+        private final Output out;
+
+        Api(ScenarioContext ctx, Output out) {
+            this.ctx = ctx;
+            this.out = out;
+        }
+
+        private Endpoint ep(String name) { return ctx.endpoint(name); }
+
+        private void alive() throws InterruptedException {
+            if (stopRequested) throw new InterruptedException();
+        }
+
+        public void log(Object message) { out.line(String.valueOf(message), false); }
+
+        public void start(String endpoint) throws InterruptedException, IOException {
+            alive();
+            Endpoint e = ep(endpoint);
+            e.start();
+            waitState(e);
+            out.line(e.name() + ": " + e.state(), false);
+        }
+
+        public void stop(String endpoint) {
+            Endpoint e = ep(endpoint);
+            e.stop();
+            out.line(e.name() + ": durduruldu", false);
+        }
+
+        public void sleep(long ms) throws InterruptedException { ScenarioRunner.this.sleep(ms); }
+
+        public void send(String endpoint, String message, Map<?, ?> values) throws IOException, InterruptedException {
+            alive();
+            Endpoint e = ep(endpoint);
+            e.send(ctx.message(e, message, texts(values)), null);
+        }
+
+        public void set(String endpoint, String message, Map<?, ?> values) {
+            ctx.assign(ep(endpoint), message, texts(values));
+        }
+
+        public void sendHex(String endpoint, String hex) throws IOException { ep(endpoint).send(Hex.parse(hex), null); }
+
+        public void sendText(String endpoint, String text) throws IOException { ep(endpoint).send(Hex.parseText(text), null); }
+
+        public void sendBytes(String endpoint, byte[] data) throws IOException { ep(endpoint).send(data, null); }
+
+        /** Mesaj gelene dek bekler; gelen mesajin alanlarini (yol -&gt; metin) dondurur. */
+        public Map<String, String> waitFor(String endpoint, String message, long timeoutMs) throws InterruptedException, IOException {
+            Endpoint e = ep(endpoint);
+            LogEntry got = ScenarioRunner.this.waitFor(e, message, timeoutMs);
+            out.line(e.name() + ": " + message + " alındı", false);
+            return values(e, got.decoded);
+        }
+
+        /** Cozulmus mesajin alanlari: semali mesajda last() ile ayni bicim, digerlerinde cozum satirlari. */
+        private Map<String, String> values(Endpoint e, comm.schema.Decoded d) {
+            comm.schema.Schema sc = e.schema();
+            if (sc != null && d.message != null && sc.byName(d.message.name) == d.message) {
+                Map<String, String> m = comm.schema.Values.receivedTexts(sc.header, d.header, "başlık.");
+                m.putAll(comm.schema.Values.receivedTexts(d.message.body, d.body, ""));
+                return m;
+            }
+            Map<String, String> m = new java.util.LinkedHashMap<>();
+            for (comm.schema.Decoded.Span sp : d.spans) m.put(sp.path, sp.text);
+            return m;
+        }
+
+        /** Mesajin son alinan degerleri; hic alinmadiysa null. */
+        public Map<String, String> last(String endpoint, String message) { return ctx.lastReceived(ep(endpoint), message); }
+
+        /** Son alinan degerleri karsilastirir (sayilar sayisal olarak); her alan bir kontrol sayilir. */
+        public boolean expect(String endpoint, String message, Map<?, ?> want) {
+            return ScenarioRunner.this.expect(ctx, ep(endpoint), message, texts(want), out);
+        }
+
+        /** Genel kontrol: sonuc sayilir ve loga yazilir. */
+        public boolean check(boolean ok, String description) {
+            checks++;
+            if (!ok) failures++;
+            out.line((ok ? "✓ " : "✗ ") + description, !ok);
+            return ok;
+        }
+
+        public void fail(String message) {
+            failures++;
+            out.line("✗ fail" + (message == null || message.isEmpty() ? "" : ": " + message), true);
+            throw new Exit();
+        }
+
+        public void exit(String message) {
+            out.line("exit" + (message == null || message.isEmpty() ? "" : ": " + message), false);
+            throw new Exit();
+        }
+
+        public void modbusRead(String endpoint, int function, int address, int count) throws IOException {
+            modbus(ep(endpoint), java.util.Arrays.asList(endpoint, "read", "" + function, "" + address, "" + count));
+        }
+
+        public void modbusWrite(String endpoint, int address, List<?> values) throws IOException {
+            modbus(ep(endpoint), java.util.Arrays.asList(endpoint, "write", "" + address, join(values)));
+        }
+
+        public void modbusCoil(String endpoint, int address, boolean on) throws IOException {
+            modbus(ep(endpoint), java.util.Arrays.asList(endpoint, "coil", "" + address, on ? "1" : "0"));
+        }
+
+        /** Slave tablosuna yazar; table: coil | di | hr | ir. */
+        public void mbset(String endpoint, String table, int address, List<?> values) throws IOException, InterruptedException {
+            exec(new Step(0, "mbset", java.util.Arrays.asList(endpoint, table, "" + address, join(values))), ctx, out);
+        }
+
+        public void snmpGet(String endpoint, List<String> oids) {
+            List<String> a = new ArrayList<>(java.util.Arrays.asList(endpoint, "get"));
+            a.addAll(oids);
+            snmp(ep(endpoint), a);
+        }
+
+        public void snmpWalk(String endpoint, String oid) { snmp(ep(endpoint), java.util.Arrays.asList(endpoint, "walk", oid)); }
+
+        public void snmpSet(String endpoint, String oid, String type, Object value) {
+            snmp(ep(endpoint), java.util.Arrays.asList(endpoint, "set", oid, type, String.valueOf(value)));
+        }
+
+        public void trap(String endpoint, String trapOid, List<String> oids) throws IOException, InterruptedException {
+            List<String> a = new ArrayList<>(java.util.Arrays.asList(endpoint, trapOid));
+            a.addAll(oids);
+            exec(new Step(0, "trap", a), ctx, out);
+        }
+
+        /** Senaryo dilinde yazilmis satirlari calistirir (degiskenler ortak). */
+        public void dsl(String text) throws ScenarioException, InterruptedException {
+            Scenario.Program p = Scenario.parseProgram(text, null);
+            java.util.Map<String, Scenario.Function> old = functions;
+            java.util.Map<String, Scenario.Function> merged = new java.util.HashMap<>(old);
+            merged.putAll(p.functions);
+            functions = merged;
+            try {
+                run(p.steps, ctx, out);
+            } finally {
+                functions = old;
+            }
+        }
+
+        /** Senaryo dili ile ortak degiskenler (${ad}). */
+        public Map<String, String> getVars() { return vars; }
+
+        /** Alt duzey erisim: baglanti nesnesi. */
+        public Endpoint endpoint(String name) { return ep(name); }
+
+        public int getChecks() { return checks; }
+
+        public int getFailures() { return failures; }
+    }
+
+    private static Map<String, String> texts(Map<?, ?> values) {
+        Map<String, String> m = new java.util.LinkedHashMap<>();
+        // Groovy anahtarlari GString olabilir ("tracks[$i].identity"); metne cevrilir
+        if (values != null) for (Map.Entry<?, ?> e : values.entrySet()) m.put(String.valueOf(e.getKey()), String.valueOf(e.getValue()));
+        return m;
+    }
+
+    private static String join(List<?> values) {
+        StringBuilder sb = new StringBuilder();
+        for (Object v : values) {
+            if (sb.length() > 0) sb.append(',');
+            sb.append(v);
+        }
+        return sb.toString();
     }
 
     static int intArg(String s) {

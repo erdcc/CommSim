@@ -899,7 +899,7 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
             }
             endpoints.addElement(ep);
         }
-        scenarioPanel.setText(p.scenario);
+        scenarioPanel.setScript(p.scenario, "groovy".equals(p.scenarioLanguage));
         applyLayout(p.layout);
         projectFile = file;
         if (isShowing()) RecentProjects.add(file);
@@ -954,6 +954,7 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
             p.endpoints.add(e);
         }
         p.scenario = scenarioPanel.text();
+        p.scenarioLanguage = scenarioPanel.isGroovy() ? "groovy" : "dsl";
         p.layout = layoutState();
         try {
             p.save(file);

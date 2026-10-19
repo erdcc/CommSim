@@ -18,7 +18,7 @@ public final class Main {
         if (args.length > 0 && (args[0].equals("--help") || args[0].equals("-h"))) {
             System.out.println("Kullanım:");
             System.out.println("  java -jar commsim.jar [proje.json]                    arayüzü açar");
-            System.out.println("  java -jar commsim.jar --run proje.json [senaryo.scn] [--start-all] [--timeout sn] [--verbose]");
+            System.out.println("  java -jar commsim.jar --run proje.json [senaryo.scn|senaryo.groovy] [--start-all] [--timeout sn] [--verbose]");
             System.out.println("      arayüzsüz çalıştırır; çıkış kodu 0 başarılı, 1 kontrol başarısız, 2 hata");
             return;
         }

@@ -41,6 +41,8 @@ public final class ProjectFile {
     public int format = FORMAT;
     public List<EndpointEntry> endpoints = new ArrayList<>();
     public String scenario = "";
+    /** Senaryo metninin dili: "dsl" (senaryo dili) ya da "groovy". */
+    public String scenarioLanguage = "dsl";
     /** Istege bagli pencere yerlesimi. */
     public LayoutState layout;
 
@@ -84,6 +86,7 @@ public final class ProjectFile {
             if (e.config.schemaOverrides == null) e.config.schemaOverrides = new comm.schema.SchemaOverrides();
         }
         if (p.scenario == null) p.scenario = "";
+        if (p.scenarioLanguage == null || p.scenarioLanguage.isEmpty()) p.scenarioLanguage = "dsl";
         return p;
     }
 }

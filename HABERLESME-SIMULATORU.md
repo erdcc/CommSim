@@ -17,7 +17,7 @@ java -jar target/commsim.jar projects/ornek-proje.json   # bir projeyle açar
 ```
 
 - `target/commsim.jar` tüm bağımlılıkları içerir: SNMP4J 2.8.18, Jackson 2.17, FlatLaf 3.5
-  (görünüm) ve JetBrains Mono (hex görünümü).
+  (görünüm), JetBrains Mono (hex görünümü) ve Groovy 4.0 (Groovy senaryoları). Jar yaklaşık 12,5 MB'tır.
 - Bytecode Java 8 içindir (`release=8`, sınıf sürümü 52). Derleme JDK 21 ile yapıldı ve
   testler JDK 21 üzerinde koşturuldu. **Gerçek bir Java 8 çalışma ortamında henüz denenmedi.**
 - macOS'ta `/usr/bin/java` bir yer tutucudur. `commsim.sh`, Homebrew'daki `openjdk@21`'i kullanır.
@@ -272,41 +272,126 @@ Biçim için [oids/ornek.oid](oids/ornek.oid) dosyasına bakın. Satır biçimi:
 
 ## Senaryolar
 
-Senaryolar satır tabanlıdır ve **Senaryo** sekmesinden çalıştırılır. Örnek:
-[scenarios/ornek.scn](scenarios/ornek.scn).
+İki dil vardır; Senaryo sekmesindeki **Dil** kutusundan seçilir:
+
+| Dil | Ne zaman | Dosya |
+|---|---|---|
+| **Senaryo dili** | "gönder, bekle, kontrol et" testleri. Programlama bilgisi gerektirmez. | `.scn` |
+| **Groovy** | Karmaşık mantık, listeler, hesaplar, dosya okuma: tam bir programlama dili. | `.groovy` |
+
+İkisi de aynı işlemleri yapar, kontrolleri aynı şekilde sayar ve arayüzsüz çalıştırılabilir.
+Proje dosyası senaryonun dilini de saklar. **Durdur** düğmesi Groovy döngülerini de keser.
+
+### Senaryo dili
+
+Satır tabanlıdır. Örnekler: [scenarios/ornek.scn](scenarios/ornek.scn) (tüm protokoller),
+[scenarios/akis.scn](scenarios/akis.scn) (döngü, fonksiyon, include).
 
 ```
-start "Örnek TCP istemci"
-repeat 3
-  send "Örnek TCP istemci" KONUM speed=120 tracks[1].identity=HOSTILE başlık.seq=7
+include ortak.scn                      # başka dosyadaki fonksiyonları ekler
+
+function konum_gonder hiz
+  send "Örnek TCP istemci" KONUM speed=${hiz}
   waitfor "Örnek TCP sunucu" KONUM 2000
-  expect "Örnek TCP sunucu" KONUM speed=120
+  expect "Örnek TCP sunucu" KONUM speed=${hiz}
 end
+
+var hiz = 100
+while ${hiz} <= 300
+  call konum_gonder ${hiz}
+  if ${hiz} >= 180
+    break
+  end
+  var hiz = ${hiz} + 20
+end
+
 mbset "Örnek Modbus slave" hr 20 1,2,3
 modbus "Örnek Modbus master" read 3 20 3
 snmp "Örnek SNMP manager" walk 1.3.6.1.2.1.1
-trap "Örnek SNMP agent" 1.3.6.1.4.1.99999.0.1
 ```
 
-- Tüm komutlar Yardım > Senaryo komutları menüsünde listelenir.
+- Tüm komutlar Senaryo sekmesindeki **Komutlar** düğmesinde listelenir.
 - **Değişkenler:** `var n = counter(1,1)`, `var hiz = last("Örnek TCP sunucu", KONUM, speed)`.
   Sonraki komutlarda `${n}` olarak kullanılır.
-- **Akış:** `if ${hiz} > 100` … `else` … `end` ile koşul; `assert ${n} == 5` ile kontrol.
+- **Akış:**
+  - `if … else … end` koşul, `assert ${n} == 5` kontrol.
+  - `repeat N … end` tekrar. N bir değişken de olabilir: `repeat ${adet}`.
+  - `while ${n} < 10 … end` koşul doğru oldukça tekrarlar. Sonsuz döngüye karşı 1.000.000
+    turda durur.
+  - `break` en içteki `repeat` ya da `while` döngüsünden çıkar.
+- **Fonksiyonlar:**
+  - `function ad [param …] … end` en dış seviyede tanımlanır, dosyanın herhangi bir yerinde olabilir.
+  - `call ad [arg …]` fonksiyonu çağırır. Argümanlar parametre değişkenlerine yazılır
+    (`${param}`), çağrı bitince eski değerleri geri gelir.
+  - `return` fonksiyondan çıkar. Özyineleme 100 derinlikle sınırlıdır.
+- **include:** `include dosya.scn` başka bir senaryo dosyasını o noktaya ekler. Yol, senaryo
+  dosyasının klasörüne göredir; kaydedilmemiş senaryoda çalışma klasörüne göredir. Hata
+  mesajlarında dosya adı da yazar: `ortak.scn satır 4`.
 - **Bitirme ve hatalar:** `fail [mesaj]` başarısız sayıp bitirir, `exit` başarıyla bitirir.
   `continue_on_error on` açıkken hatalı komut atlanır ve başarısız sayılır.
 - `waitfor`, senaryo başladıktan sonra gelen mesajları sırayla tüketir. Bu yüzden yanıt
   `send` komutundan hemen sonra gelse bile kaçmaz.
 - Bir komut hata verirse senaryo durur. `expect` hataları ise sayılır ve sonda özetlenir.
 
+### Groovy
+
+Örnek: [scenarios/ornek.groovy](scenarios/ornek.groovy). Groovy 4 kullanılır; Java 8 ile
+çalışır ve jar'a dahildir.
+
+```groovy
+def sunucu = "Örnek TCP sunucu"
+start sunucu
+start "Örnek TCP istemci"
+
+for (hiz in (100..140).step(20)) {
+    send "Örnek TCP istemci", "KONUM", speed: hiz, heading: 45
+    def m = waitFor(sunucu, "KONUM", 2000)        // gelen mesajın alanları
+    check m.speed == "$hiz", "KONUM hızı $hiz"
+}
+
+def hedefler = ["FRIEND", "HOSTILE"]
+def atama = [tracks: hedefler.size()]
+hedefler.eachWithIndex { k, i -> atama["tracks[$i].identity"] = k }
+send "Örnek TCP istemci", "HEDEF_LISTESI", atama
+
+dsl '''
+repeat 3
+  send "Örnek TCP istemci" HEARTBEAT uptime=42
+end
+'''
+```
+
+| Yöntem | Ne yapar |
+|---|---|
+| `start(b)`, `stop(b)` | Bağlantıyı başlatır (çalışana dek bekler) / durdurur |
+| `sleep(ms)`, `log(metin)` | Bekleme ve çıktı |
+| `send(b, MESAJ, alan: değer, …)` | Değerleri atar ve gönderir; `set(...)` yalnızca atar |
+| `sendHex(b, "A5 01")`, `sendText(b, "OK\r\n")`, `sendBytes(b, byte[])` | Ham gönderim |
+| `waitFor(b, MESAJ[, ms])` | Mesajı bekler, alanlarını döndürür: `m.speed`, `m["başlık.seq"]` |
+| `last(b, MESAJ)` | Son alınan değerler (yoksa `null`) |
+| `expect(b, MESAJ, alan: değer)`, `check(koşul, "açıklama")` | Kontroller (sayılır) |
+| `fail(mesaj)`, `exit(mesaj)` | Bitirme |
+| `modbusRead`, `modbusWrite`, `modbusCoil`, `mbset` | Modbus |
+| `snmpGet`, `snmpWalk`, `snmpSet`, `trap` | SNMP |
+| `dsl('''…''')` | Senaryo dilinde satırlar çalıştırır |
+| `vars.ad = "5"` | Senaryo diliyle ortak değişkenler (`${ad}`) |
+| `endpoint(b)` | Alt düzey bağlantı nesnesi |
+
+Değerler metin olarak döner. Sayısal karşılaştırma için `m.speed as int` kullanın. Derleme
+hataları çalıştırmadan önce `dosya.groovy satır 3:5` biçiminde gösterilir. Çalışma hataları
+da betikteki satır numarasıyla yazılır.
+
 ## Arayüzsüz çalıştırma (CI)
 
 ```bash
 java -jar target/commsim.jar --run projects/ornek-proje.json scenarios/ornek.scn --start-all --timeout 120
+java -jar target/commsim.jar --run projects/ornek-proje.json scenarios/ornek.groovy
 ```
 
 Projeyi arayüz açmadan yükler. Bağlantılar, şemalar, kurallar, üreteçler ve canlı değerler aynı
-şekilde çalışır. Senaryo dosyası verilmezse projedeki senaryo kullanılır. `--start-all` önce
-sunucuları sonra istemcileri başlatır; `--verbose` her çerçeveyi yazar.
+şekilde çalışır. Dil dosya uzantısından anlaşılır (`.groovy` ya da diğerleri). Senaryo dosyası
+verilmezse projedeki senaryo kendi diliyle kullanılır. `--start-all` önce sunucuları sonra
+istemcileri başlatır; `--verbose` her çerçeveyi yazar.
 
 Çıkış kodu: **0** başarılı, **1** kontrol (expect/assert/fail) başarısız, **2** hata, zaman aşımı
 ya da kullanım hatası.
@@ -338,7 +423,7 @@ Proje JSON olarak saklanır. Örnek: [projects/ornek-proje.json](projects/ornek-
 
 ## Testler
 
-`mvn test` 68 test çalıştırır:
+`mvn test` 73 test çalıştırır:
 
 - hex işlemleri ve çerçeveleme,
 - gerçek soketlerle TCP ve UDP,
@@ -354,4 +439,6 @@ Proje JSON olarak saklanır. Örnek: [projects/ornek-proje.json](projects/ornek-
 - WebSocket (RFC örneği, parçalı mesaj, ping, ret durumları, yeniden bağlanma),
 - kayıt/tekrar oynatma, senaryo değişkenleri/koşulları ve arayüzsüz çalıştırıcının çıkış kodları,
 - hazır mesajların kaydedilip uygulanması, soket seçeneklerinin proje dosyasında saklanması,
-- komut paletinin araması (Türkçe harf eşleme dahil).
+- komut paletinin araması (Türkçe harf eşleme dahil),
+- senaryo dilinde while/break/function/include, özyineleme sınırı,
+- Groovy senaryoları: gerçek uçlarla gönderme/bekleme/kontrol, satır numaralı hatalar, durdurma.

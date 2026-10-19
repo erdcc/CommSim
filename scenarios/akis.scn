@@ -1,0 +1,24 @@
+# while, break, function ve include örneği.
+# Arayüzsüz:  java -jar target/commsim.jar --run projects/ornek-proje.json scenarios/akis.scn
+
+include ortak.scn
+
+call tcp_baslat
+
+# Hızı 100'den başlatıp 20'şer artır; 180'e gelince dur.
+var hiz = 100
+while ${hiz} <= 300
+  call konum_gonder ${hiz}
+  if ${hiz} >= 180
+    log Hız sınırına ulaşıldı: ${hiz}
+    break
+  end
+  var hiz = ${hiz} + 20
+end
+assert ${hiz} == 180
+
+# Tekrar sayısı değişkenden de gelebilir.
+var adet = 2
+repeat ${adet}
+  call konum_gonder 50
+end
