@@ -367,7 +367,7 @@ public final class Scenario {
     }
 
     /** Boslukla ayirir; cift tirnak icindeki bosluklar korunur, \" ve \\ kacislari cozulur. */
-    static List<String> tokenize(String line) {
+    public static List<String> tokenize(String line) {
         List<String> out = new ArrayList<>();
         StringBuilder cur = new StringBuilder();
         boolean quoted = false;

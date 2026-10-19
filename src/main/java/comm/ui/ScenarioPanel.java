@@ -142,7 +142,10 @@ final class ScenarioPanel extends JPanel {
             "log Bitti",
             "");
 
-    private final JTextArea editor = new JTextArea(SAMPLE);
+    /** Editorun tamamlama ve uyarilar icin bildigi baglantilar (ana pencere saglar). */
+    private java.util.function.Supplier<java.util.List<comm.ui.editor.Target>> targets = java.util.Collections::emptyList;
+    private final comm.ui.editor.ScriptEditor editor = new comm.ui.editor.ScriptEditor(() -> targets.get(),
+            () -> this.file != null ? this.file.getAbsoluteFile().getParentFile().toPath() : null);
     private final JTextPane output = new JTextPane();
     private final JButton runBtn = UiKit.primary("Çalıştır", Icons.PLAY);
     private final JButton stopBtn = UiKit.button("Durdur", Icons.STOP);
@@ -176,11 +179,11 @@ final class ScenarioPanel extends JPanel {
         add(bar, BorderLayout.NORTH);
 
         Font mono = Theme.mono(12);
-        editor.setFont(mono);
-        editor.setTabSize(2);
+        editor.setText(SAMPLE);
+        editor.setOnRun(this::run);
         output.setEditable(false);
         output.setFont(mono);
-        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, new JScrollPane(editor), new JScrollPane(output));
+        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, editor, new JScrollPane(output));
         split.setResizeWeight(0.55);
         add(split, BorderLayout.CENTER);
 
@@ -201,6 +204,11 @@ final class ScenarioPanel extends JPanel {
 
     String text() { return editor.getText(); }
 
+    void setTargets(java.util.function.Supplier<java.util.List<comm.ui.editor.Target>> t) {
+        targets = t;
+        editor.targetsChanged();
+    }
+
     boolean isGroovy() { return language.getSelectedIndex() == 1; }
 
     /** Proje dosyasindan gelen senaryo ve dili. */
@@ -211,13 +219,13 @@ final class ScenarioPanel extends JPanel {
 
     /** Dil degisince editor ornek metin iceriyorsa digerinin ornegine gecer. */
     private void languageChanged() {
+        editor.setGroovy(isGroovy());
         String t = editor.getText().trim();
         if (t.isEmpty() || t.equals(SAMPLE.trim()) || t.equals(SAMPLE_GROOVY.trim())) setText(isGroovy() ? SAMPLE_GROOVY : SAMPLE);
     }
 
     void setText(String s) {
         editor.setText(s);
-        editor.setCaretPosition(0);
     }
 
     void stop() { runner.stop(); }

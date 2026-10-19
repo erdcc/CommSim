@@ -12,6 +12,7 @@ import org.codehaus.groovy.control.messages.Message;
 import org.codehaus.groovy.control.messages.SyntaxErrorMessage;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.function.BooleanSupplier;
 
 /** Groovy betiklerini derleyip calistirir. Yalnizca .groovy senaryolarinda yuklenir. */
@@ -80,6 +81,37 @@ final class GroovySupport {
             return "tanımsız değişken: " + ((groovy.lang.MissingPropertyException) e).getProperty();
         }
         return m == null ? e.toString() : m;
+    }
+
+    /** Editor denetimi: derler ve hatalari sorun listesine ekler (calistirmaz). */
+    static void compileForCheck(String code, List<ScriptCheck.Problem> out) {
+        CompilerConfiguration cc = new CompilerConfiguration();
+        cc.setScriptBaseClass(SimScript.class.getName());
+        cc.setSourceEncoding("UTF-8");
+        GroovyClassLoader loader = new GroovyClassLoader(GroovySupport.class.getClassLoader(), cc);
+        try {
+            loader.parseClass(code, "denetim.groovy");
+        } catch (MultipleCompilationErrorsException e) {
+            for (Object o : e.getErrorCollector().getErrors()) {
+                if (o instanceof SyntaxErrorMessage) {
+                    org.codehaus.groovy.syntax.SyntaxException se = ((SyntaxErrorMessage) o).getCause();
+                    int end = se.getEndLine() == se.getStartLine() ? se.getEndColumn() : 0;
+                    out.add(new ScriptCheck.Problem(se.getStartLine(), se.getStartColumn(), end, se.getOriginalMessage(), false));
+                } else if (o instanceof Message) {
+                    java.io.StringWriter w = new java.io.StringWriter();
+                    ((Message) o).write(new java.io.PrintWriter(w));
+                    out.add(new ScriptCheck.Problem(1, 0, 0, w.toString().trim(), false));
+                }
+            }
+        } catch (CompilationFailedException e) {
+            out.add(new ScriptCheck.Problem(1, 0, 0, e.getMessage(), false));
+        } finally {
+            try {
+                loader.close();
+            } catch (java.io.IOException ignored) {
+                // onemsiz
+            }
+        }
     }
 
     /** @throws ScenarioException derleme hatasi (satir:sutun ile) */

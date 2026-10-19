@@ -240,6 +240,16 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
         content.add(statusBar, BorderLayout.SOUTH);
         setContentPane(content);
         toasts = new Toasts(getRootPane());
+        scenarioPanel.setTargets(() -> {
+            List<comm.ui.editor.Target> out = new ArrayList<>();
+            for (Endpoint ep : all()) {
+                comm.core.EndpointConfig.Kind k = ep.config().kind;
+                out.add(new comm.ui.editor.Target(ep.name(), EndpointCell.kindLabel(k), ep.schema(),
+                        k == comm.core.EndpointConfig.Kind.MODBUS_MASTER, k == comm.core.EndpointConfig.Kind.MODBUS_SLAVE,
+                        k == comm.core.EndpointConfig.Kind.SNMP_MANAGER, k == comm.core.EndpointConfig.Kind.SNMP_AGENT));
+            }
+            return out;
+        });
         installNumberKeys();
         installDrop();
         setJMenuBar(menuBar());

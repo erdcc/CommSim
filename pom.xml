@@ -41,6 +41,17 @@
       <artifactId>flatlaf-fonts-jetbrains-mono</artifactId>
       <version>2.304</version>
     </dependency>
+    <!-- Senaryo editoru: soz dizimi renklendirme ve kod tamamlama -->
+    <dependency>
+      <groupId>com.fifesoft</groupId>
+      <artifactId>rsyntaxtextarea</artifactId>
+      <version>3.3.4</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fifesoft</groupId>
+      <artifactId>autocomplete</artifactId>
+      <version>3.3.1</version>
+    </dependency>
     <!-- Groovy senaryolari (.groovy); Groovy 4 Java 8 ile calisir -->
     <dependency>
       <groupId>org.apache.groovy</groupId>
