@@ -38,6 +38,9 @@ final class MessagePanel extends JPanel {
     private final Consumer<byte[]> sender;
     private ParameterStore store;
     private FieldTable.Generators generators;
+    private final JButton presetButton = UiKit.button("Hazır mesajlar", Icons.STAR);
+    /** Secili baglantinin hazir mesajlari (EndpointConfig.presets); null ise yok. */
+    private List<comm.core.MessagePreset> presets;
 
     /** Ureteç sutunu yalnizca Gelismis gorunumde. */
     void modeChanged() {
@@ -73,6 +76,9 @@ final class MessagePanel extends JPanel {
         JButton defaults = UiKit.button("Varsayılana dön", Icons.RELOAD);
         top.add(defaults);
         top.add(copyRxButton);
+        top.add(presetButton);
+        presetButton.setToolTipText("Değer kümelerini adıyla kaydedin; tek tıkla forma yükleyin ya da gönderin");
+        presetButton.addActionListener(e -> presetMenu().show(presetButton, 0, presetButton.getHeight()));
 
         JPanel bottom = new JPanel(new BorderLayout(6, 0));
         preview.setFont(Theme.mono(12));
@@ -121,6 +127,105 @@ final class MessagePanel extends JPanel {
         updatingBox = false;
         cards.show(this, schema == null ? "none" : "form");
         reloadTable();
+    }
+
+    /** Baglantinin hazir mesaj listesi (degistirilebilir, proje dosyasina kaydedilir). */
+    void setPresets(List<comm.core.MessagePreset> list) {
+        presets = list;
+        presetButton.setEnabled(list != null);
+    }
+
+    List<comm.core.MessagePreset> presets() {
+        return presets == null ? java.util.Collections.<comm.core.MessagePreset>emptyList() : presets;
+    }
+
+    List<MessageDef> messages() {
+        List<MessageDef> out = new ArrayList<>();
+        for (int i = 0; i < msgBox.getItemCount(); i++) out.add(msgBox.getItemAt(i));
+        return out;
+    }
+
+    /** Formdaki mesaji gonderir; gonderilemiyorsa false. */
+    boolean sendNow() {
+        if (!sendButton.isEnabled()) return false;
+        send();
+        return true;
+    }
+
+    /** Hazir mesaji forma yukler; basariliysa true. */
+    boolean loadPreset(comm.core.MessagePreset p) {
+        if (store == null) return false;
+        List<String> problems;
+        try {
+            problems = store.apply(p);
+        } catch (IllegalArgumentException e) {
+            showError(e.getMessage());
+            return false;
+        }
+        MessageDef m = store.schema().byName(p.message);
+        msgBox.setSelectedItem(m);
+        reloadTable();
+        if (!problems.isEmpty()) showError("'" + p.name + "': " + String.join("; ", problems));
+        return true;
+    }
+
+    /** Hazir mesaji yukleyip gonderir. */
+    boolean sendPreset(comm.core.MessagePreset p) {
+        return loadPreset(p) && sendNow();
+    }
+
+    private javax.swing.JPopupMenu presetMenu() {
+        javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
+        javax.swing.JMenuItem save = new javax.swing.JMenuItem("Mevcut değerleri kaydet…", Icons.ADD);
+        MessageDef cur = selected();
+        save.setEnabled(cur != null && store != null && presets != null);
+        save.addActionListener(e -> savePreset());
+        menu.add(save);
+        if (presets == null || presets.isEmpty()) {
+            javax.swing.JMenuItem none = new javax.swing.JMenuItem("Henüz hazır mesaj yok");
+            none.setEnabled(false);
+            menu.add(none);
+            return menu;
+        }
+        menu.addSeparator();
+        for (comm.core.MessagePreset p : presets) {
+            javax.swing.JMenu sub = new javax.swing.JMenu(p.name + "   · " + p.message);
+            javax.swing.JMenuItem send = new javax.swing.JMenuItem("Gönder", Icons.SEND);
+            send.setEnabled(canSend);
+            send.addActionListener(e -> sendPreset(p));
+            javax.swing.JMenuItem load = new javax.swing.JMenuItem("Forma yükle", Icons.EDIT);
+            load.addActionListener(e -> loadPreset(p));
+            javax.swing.JMenuItem update = new javax.swing.JMenuItem("Mevcut değerlerle güncelle");
+            update.setEnabled(cur != null && cur.name.equals(p.message));
+            update.addActionListener(e -> {
+                p.values = store.snapshot(cur, p.name).values;
+                preview.setForeground(Theme.ok());
+                preview.setText("'" + p.name + "' güncellendi");
+            });
+            javax.swing.JMenuItem del = new javax.swing.JMenuItem("Sil", Icons.DELETE);
+            del.addActionListener(e -> presets.remove(p));
+            sub.add(send);
+            sub.add(load);
+            sub.add(update);
+            sub.addSeparator();
+            sub.add(del);
+            menu.add(sub);
+        }
+        return menu;
+    }
+
+    private void savePreset() {
+        MessageDef m = selected();
+        if (m == null || store == null || presets == null) return;
+        Object in = javax.swing.JOptionPane.showInputDialog(this, "Hazır mesajın adı:", "Hazır mesaj kaydet",
+                javax.swing.JOptionPane.PLAIN_MESSAGE, null, null, m.name + " " + (presets.size() + 1));
+        if (in == null || in.toString().trim().isEmpty()) return;
+        String name = in.toString().trim();
+        comm.core.MessagePreset p = store.snapshot(m, name);
+        presets.removeIf(x -> x.name.equals(name));
+        presets.add(p);
+        preview.setForeground(Theme.ok());
+        preview.setText("'" + name + "' kaydedildi — Hazır mesajlar menüsünden yükleyin ya da gönderin");
     }
 
     void setCanSend(boolean on) {

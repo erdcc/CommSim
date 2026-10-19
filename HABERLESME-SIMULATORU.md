@@ -28,8 +28,9 @@ java -jar target/commsim.jar projects/ornek-proje.json   # bir projeyle açar
 |---|---|
 | Sol | Bağlantı listesi. Renk durumu gösterir: yeşil çalışıyor, sarı başlıyor, kırmızı hata. Çift tıklama başlatır ya da durdurur. |
 | Sağ üst | Seçili bağlantının sekmeleri: **Mesaj / Ham / Parametreler** (TCP, UDP), **Modbus / Ham**, **SNMP / Ham**. Hedef eş seçimi ve periyodik gönderim de buradadır. |
-| Sağ alt | **Trafik** (log, filtre, alan alan çözüm ve hex dump), **Senaryo**, **İstatistik**. |
-| Menü | Dosya: yeni proje, aç, kaydet, trafiği CSV ya da metin olarak dışa aktar. Yardım: senaryo komutları. |
+| Sağ alt | **Trafik** (log, filtre, alan tablosu ile renkli hex görünümü), **Senaryo**, **Grafik**, **İstatistik**. |
+| Menü | Dosya: yeni proje, aç, son projeler, kaydet, trafiği CSV ya da metin olarak dışa aktar. Yardım: senaryo komutları. |
+| Sağ alt köşe | Bildirimler: bağlantı hataları, gönderim hataları, kaydetme/açma/dışa aktarma sonuçları. Birkaç saniye sonra kaybolur, tıklayınca kapanır. Aynı bağlantıdan art arda gelen hatalar tek bildirimde toplanır. |
 
 ### Basit ve Gelişmiş görünüm
 
@@ -55,8 +56,15 @@ kartında görünür kalır: `↩ 1 kural`, `⚡ hata enjeksiyonu`.
 
 - **Tema:** Açık, koyu ya da sistem (macOS ayarını izler). Görünüm menüsünden ya da araç
   çubuğunun sağındaki düğmeden değiştirilir; seçim hatırlanır.
-- **Bağlantı kartları:** durum noktası, protokol rozeti, adres ve canlı ↓RX/↑TX sayaçları.
-  Sağ tık menüsünden başlat/durdur, düzenle, kopyala, şemayı düzenle ve sil seçilebilir.
+- **Bağlantı kartları:** durum noktası, ad, protokol rozeti, adres ve canlı ↓RX/↑TX sayaçları.
+  Trafik geldiği ya da gittiği anda ilgili sayaç kısa süre renklenir. Sağ tık menüsünden
+  başlat/durdur, düzenle, kopyala, şemayı düzenle ve sil seçilebilir.
+- **Komut paleti (⌘K):** araç çubuğundaki **Komutlar** düğmesi de açar. Yazarak her eyleme,
+  bağlantıya, mesaja ve hazır mesaja ulaşılır: `gönder konum` KONUM mesajını gönderir,
+  `başlat` seçili bağlantıyı başlatır, `koyu` temayı değiştirir. Türkçe harfler olmadan da
+  yazılabilir (`gonder` = `gönder`).
+- **Proje açma:** Dosya > Son projeler listesi son 8 projeyi tutar. Bir `.json` proje dosyasını
+  pencereye sürükleyip bırakmak da açar.
 - **Kısayollar:**
 
 | Tuş | İşlem |
@@ -68,7 +76,12 @@ kartında görünür kalır: `↩ 1 kural`, `⚡ hata enjeksiyonu`.
 | ⌘R | Başlat |
 | ⌘. | Durdur |
 | Boşluk | Başlat/durdur |
-| ⌘⏎ | Ham sekmesinde gönder |
+| ⌘⏎ | Açık sekmedeki mesajı gönder (Mesaj, Parametreler ya da Ham) |
+| ⌘⇧R | Tüm bağlantıları başlat |
+| ⌘1 … ⌘9 | Listedeki 1.–9. bağlantıya geç |
+| ⌘K | Komut paleti |
+| ⌘F | Trafikte ara |
+| ⌘L | Trafiği temizle |
 | ⌘N, ⌘O, ⌘S | Yeni proje, aç, kaydet |
 
 İlk açılışta sekiz örnek bağlantı gelir: TCP sunucu/istemci (`schemas/ornek.def` şemalı),
@@ -81,8 +94,8 @@ Modbus slave/master ve SNMP agent/manager (`oids/ornek.oid`). Örnek portlar 505
 
 | Tür | Not |
 |---|---|
-| TCP Sunucu / İstemci | Çerçeveleme seçenekleri: ham, uzunluk önekli (1/2/4 byte, BE/LE, başlık dahil/hariç), ayraçlı ya da sabit uzunluk. İstemci kopunca otomatik yeniden bağlanabilir. |
-| UDP | Unicast, broadcast ve multicast (grup, ağ arayüzü, TTL). Her datagram bir çerçevedir. |
+| TCP Sunucu / İstemci | Çerçeveleme seçenekleri: ham, uzunluk önekli (1/2/4 byte, BE/LE, başlık dahil/hariç), ayraçlı ya da sabit uzunluk. İstemci kopunca otomatik yeniden bağlanabilir. Gelişmiş ayarlarda **no delay** (varsayılan açık: küçük paketler beklemeden gider) ve **keep-alive** seçilebilir; bu ikisi Modbus ve WebSocket bağlantılarında da vardır. |
+| UDP | Unicast, broadcast ve multicast (grup, ağ arayüzü, TTL, loopback). Her datagram bir çerçevedir. Gruba göndermek için hedef adrese grup adresi yazılır. Loopback açıkken (varsayılan) gönderilen multicast paketi aynı makinedeki dinleyicilere de ulaşır. |
 | Modbus TCP Slave | FC 1, 2, 3, 4, 5, 6, 15, 16 ve 23 desteklenir. Standart istisnalar (01, 02, 03) döner. Unit id filtresi ve yanıt gecikmesi ayarlanabilir. |
 | Modbus TCP Master | İstek oluşturucu, periyodik okumalar, zaman aşımı ve yanıt süresi. Okunan değerler tabloya yansır; tablodaki bir değeri değiştirmek yazma isteği gönderir. |
 | SNMP Agent | v1, v2c ve v3 (USM) isteklerine yanıt verir: GET, GETNEXT, GETBULK, SET. Community denetimi yapar, trap gönderir. |
@@ -203,6 +216,13 @@ trafik loguna "⚡ Hata enjeksiyonu: …" olarak yazılır.
 
 ## Trafik logu, grafik ve karşılaştırma
 
+- **Kayıt incelemesi:** seçilen kaydın altında yön rozeti, mesaj adı, zaman, eş ve boyut
+  görünür; çözüm hatası ya da uyarı varsa aynı satırda yazar. Solda alan tablosu (ofset, boy,
+  alan, değer), sağda hex + ASCII dökümü vardır. Her alanın byte'ları dökümde sırayla iki
+  tonla boyanır. Tabloda bir alanı seçmek byte'larını vurgular, dökümde bir byte'a tıklamak
+  ait olduğu alanı seçer, üzerine gelmek alan adını ve değerini gösterir. Sağ üstteki düğme
+  kaydın tam metin dökümünü panoya kopyalar.
+
 - **Sağ tık menüsü:** yeniden gönder, mesaj formuna kopyala, Ham sekmesine al, hex'i panoya
   kopyala, karşılaştır (iki satır seçiliyken) ve değeri grafiğe ekle. Çoklu seçim desteklenir.
 - **Yanıt (ms) sütunu:** alınan çerçevede, aynı bağlantıdan yapılan son gönderimden bu yana
@@ -212,6 +232,14 @@ trafik loguna "⚡ Hata enjeksiyonu: …" olarak yazılır.
   saniyede bir) zamana göre çizilir. Pencere 30 sn ile 15 dk arasında seçilir, duraklatılabilir.
   Seri eklemek için "Seri ekle…", Parametreler'deki "Grafiğe ekle" ya da trafik logundaki sağ
   tık kullanılabilir.
+
+## Hazır mesajlar
+
+Mesaj sekmesindeki **Hazır mesajlar** menüsü, formdaki değerleri bir adla kaydeder
+("Eve dön", "Acil durum" gibi). Kayıtlı bir hazır mesaj tek tıkla forma yüklenir ya da
+doğrudan gönderilir; mevcut değerlerle güncellenebilir ya da silinebilir. Komut paletinde
+`gönder <ad>` yazarak da gönderilir. Hazır mesajlar bağlantıya aittir ve proje dosyasına
+kaydedilir. Şema değiştikten sonra artık bulunmayan alanlar yüklenirken uyarı olarak gösterilir.
 
 ## Kayıt ve tekrar oynatma
 
@@ -294,6 +322,7 @@ Proje JSON olarak saklanır. Örnek: [projects/ornek-proje.json](projects/ornek-
 - Modbus slave tabloları (yalnız sıfır olmayan değerler),
 - SNMP agent OID tablosu,
 - otomatik yanıt kuralları, üreteçler, canlı değerler ve hata enjeksiyonu ayarları,
+- hazır mesajlar,
 - senaryo metni ve pencere yerleşimi.
 
 **Dikkat:** SNMP community'leri ve v3 parolaları dosyada **düz metin** olarak durur.
@@ -309,7 +338,7 @@ Proje JSON olarak saklanır. Örnek: [projects/ornek-proje.json](projects/ornek-
 
 ## Testler
 
-`mvn test` 65 test çalıştırır:
+`mvn test` 68 test çalıştırır:
 
 - hex işlemleri ve çerçeveleme,
 - gerçek soketlerle TCP ve UDP,
@@ -323,4 +352,6 @@ Proje JSON olarak saklanır. Örnek: [projects/ornek-proje.json](projects/ornek-
 - ifade dili, üreteçler ve canlı değerler,
 - otomatik yanıt kuralları (TCP ve UDP), hata enjeksiyonu,
 - WebSocket (RFC örneği, parçalı mesaj, ping, ret durumları, yeniden bağlanma),
-- kayıt/tekrar oynatma, senaryo değişkenleri/koşulları ve arayüzsüz çalıştırıcının çıkış kodları.
+- kayıt/tekrar oynatma, senaryo değişkenleri/koşulları ve arayüzsüz çalıştırıcının çıkış kodları,
+- hazır mesajların kaydedilip uygulanması, soket seçeneklerinin proje dosyasında saklanması,
+- komut paletinin araması (Türkçe harf eşleme dahil).

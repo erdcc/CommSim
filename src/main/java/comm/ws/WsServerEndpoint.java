@@ -69,6 +69,8 @@ public final class WsServerEndpoint extends Endpoint {
         WsConnection c;
         try {
             s.setSoTimeout(10_000); // el sikisma suresi
+            s.setTcpNoDelay(config().tcpNoDelay);
+            s.setKeepAlive(config().tcpKeepAlive);
             c = WsConnection.accept(s, config.wsPath, config.wsSubprotocol);
             s.setSoTimeout(0);
         } catch (IOException e) {

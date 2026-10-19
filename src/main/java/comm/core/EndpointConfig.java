@@ -54,6 +54,12 @@ public final class EndpointConfig {
     public String networkInterface = "";
     public int multicastTtl = 1;
     public boolean broadcast = false;
+    /** UDP multicast: gonderilen paket ayni makinedeki dinleyicilere de dussun. */
+    public boolean multicastLoopback = true;
+    /** TCP: Nagle algoritmasini kapatir (kucuk paketler beklemeden gider). */
+    public boolean tcpNoDelay = true;
+    /** TCP: isletim sisteminin keep-alive yoklamalari. */
+    public boolean tcpKeepAlive = false;
     public FramingConfig framing = new FramingConfig();
     /** Mesaj semasi dosyasi (.def); bos ise cerceveler cozulmez. */
     public String schemaFile = "";
@@ -75,6 +81,8 @@ public final class EndpointConfig {
     public List<LiveGenerator> liveGenerators = new CopyOnWriteArrayList<>();
     /** TCP/UDP/WebSocket: otomatik yanit kurallari (sirayla; ilk eslesen calisir). */
     public List<ResponseRule> rules = new CopyOnWriteArrayList<>();
+    /** Hazir mesajlar (adlandirilmis deger kumeleri). */
+    public List<MessagePreset> presets = new CopyOnWriteArrayList<>();
     /** Test amacli hata enjeksiyonu (gonderilen cercevelere). */
     public FaultConfig faults = new FaultConfig();
 
@@ -122,6 +130,9 @@ public final class EndpointConfig {
         c.networkInterface = networkInterface;
         c.multicastTtl = multicastTtl;
         c.broadcast = broadcast;
+        c.multicastLoopback = multicastLoopback;
+        c.tcpNoDelay = tcpNoDelay;
+        c.tcpKeepAlive = tcpKeepAlive;
         c.framing = framing.copy();
         c.schemaFile = schemaFile;
         c.schemaOverrides = schemaOverrides == null ? new comm.schema.SchemaOverrides() : schemaOverrides.copy();
@@ -151,6 +162,8 @@ public final class EndpointConfig {
         c.faults = faults == null ? new FaultConfig() : faults.copy();
         c.rules = new CopyOnWriteArrayList<>();
         if (rules != null) for (ResponseRule r : rules) c.rules.add(r.copy());
+        c.presets = new CopyOnWriteArrayList<>();
+        if (presets != null) for (MessagePreset p : presets) c.presets.add(p.copy());
         c.liveGenerators = new CopyOnWriteArrayList<>();
         if (liveGenerators != null) for (LiveGenerator g : liveGenerators) c.liveGenerators.add(g.copy());
         return c;

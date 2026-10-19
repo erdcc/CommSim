@@ -88,7 +88,12 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
 
     private final TrafficBus bus = new TrafficBus();
     private final DefaultListModel<Endpoint> endpoints = new DefaultListModel<>();
-    private final JList<Endpoint> list = new JList<>(endpoints);
+    private final JList<Endpoint> list = new JList<Endpoint>(endpoints) {
+        private static final long serialVersionUID = 1L;
+
+        /** Kartlar panel genisligine uyar; yatay kaydirma cubugu cikmaz. */
+        @Override public boolean getScrollableTracksViewportWidth() { return true; }
+    };
     private final SendPanel sendPanel = new SendPanel();
     private final ParametersPanel paramsPanel = new ParametersPanel(sendPanel::sendBytes,
             () -> list.getSelectedValue() != null && list.getSelectedValue().state() == Endpoint.State.RUNNING,
@@ -123,6 +128,7 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
     private final comm.runtime.RuleEngine ruleEngine = new comm.runtime.RuleEngine(bus);
     private final comm.runtime.LiveGenerators liveGenerators = new comm.runtime.LiveGenerators(() -> liveList);
     private Path projectFile;
+    private Toasts toasts;
 
     public MainFrame() {
         this(null);
@@ -154,6 +160,9 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
         tools.add(copyBtn);
         tools.add(deleteBtn);
         tools.add(javax.swing.Box.createHorizontalGlue());
+        JButton paletteBtn = toolButton("Komutlar", Icons.COMMAND, "Komut paleti: her eyleme, bağlantıya ve mesaja klavyeyle ulaşın (⌘K)");
+        paletteBtn.addActionListener(e -> openPalette());
+        tools.add(paletteBtn);
         tools.add(schemaEditBtn);
         tools.add(reloadBtn);
         tools.addSeparator(new Dimension(14, 20));
@@ -164,7 +173,8 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setCellRenderer(new EndpointCell());
         list.setFixedCellHeight(66);
-        JScrollPane listScroll = new JScrollPane(list);
+        JScrollPane listScroll = new JScrollPane(list, javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         listScroll.setBorder(BorderFactory.createEmptyBorder());
         JPanel empty = new JPanel(new java.awt.GridBagLayout());
         JPanel emptyBox = new JPanel();
@@ -229,6 +239,9 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
         content.add(main, BorderLayout.CENTER);
         content.add(statusBar, BorderLayout.SOUTH);
         setContentPane(content);
+        toasts = new Toasts(getRootPane());
+        installNumberKeys();
+        installDrop();
         setJMenuBar(menuBar());
         UiMode.onChange(this::modeChanged);
         recItem.setVisible(UiMode.advanced());
@@ -443,7 +456,7 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
                     try {
                         ep.send(data, peer);
                     } catch (IOException | RuntimeException ex) {
-                        SwingUtilities.invokeLater(() -> statusBar.setText("Gönderilemedi: " + ex.getMessage()));
+                        SwingUtilities.invokeLater(() -> announce(Toasts.Kind.ERROR, "Gönderilemedi", ex.getMessage()));
                     }
                 });
             }
@@ -519,6 +532,169 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
         return m;
     }
 
+    // =========================== komutlar ===========================
+
+    private void sendCurrent() {
+        Endpoint ep = list.getSelectedValue();
+        if (ep == null) {
+            announce(Toasts.Kind.INFO, "Gönderilemedi", "Önce bir bağlantı seçin.");
+        } else if (ep.state() != Endpoint.State.RUNNING) {
+            announce(Toasts.Kind.WARN, ep.name() + " çalışmıyor", "Göndermeden önce bağlantıyı başlatın (⌘R).");
+        } else if (!sendPanel.sendCurrent()) {
+            announce(Toasts.Kind.INFO, "Gönderilemedi", "Açık sekmede gönderilecek bir içerik yok.");
+        }
+    }
+
+    private void startAll() {
+        for (Endpoint ep : all()) {
+            if (ep.state() == Endpoint.State.RUNNING) continue;
+            background.execute(() -> {
+                try {
+                    ep.start();
+                } catch (Exception ignored) {
+                    // hata trafik loguna ve bildirime zaten duser
+                }
+            });
+        }
+    }
+
+    private void focusTrafficSearch() {
+        bottomTabs.setSelectedComponent(trafficPanel);
+        trafficPanel.focusSearch();
+    }
+
+    private void openPalette() {
+        CommandPalette.show(this, commands());
+    }
+
+    /** Paletteki komutlar: genel eylemler, baglantilar, secili baglantinin mesajlari ve hazir mesajlari. */
+    private List<CommandPalette.Command> commands() {
+        List<CommandPalette.Command> c = new ArrayList<>();
+        Endpoint sel = list.getSelectedValue();
+        if (sel != null) {
+            boolean running = sel.state() == Endpoint.State.RUNNING;
+            for (comm.core.MessagePreset p : sendPanel.messagePanel().presets()) {
+                c.add(new CommandPalette.Command("Hazır mesaj", "Gönder: " + p.name + "  (" + p.message + ")", null, Icons.STAR, () -> {
+                    if (!running) announce(Toasts.Kind.WARN, sel.name() + " çalışmıyor", "Önce bağlantıyı başlatın.");
+                    else sendPanel.messagePanel().sendPreset(p);
+                }));
+            }
+            for (comm.schema.MessageDef m : sendPanel.messagePanel().messages()) {
+                c.add(new CommandPalette.Command("Mesaj", "Gönder: " + m.name, null, Icons.SEND, () -> {
+                    sendPanel.showMessage(m);
+                    if (!running) announce(Toasts.Kind.WARN, sel.name() + " çalışmıyor", "Önce bağlantıyı başlatın.");
+                    else sendPanel.messagePanel().sendNow();
+                }));
+                c.add(new CommandPalette.Command("Mesaj", "Forma aç: " + m.name, null, Icons.EDIT, () -> sendPanel.showMessage(m)));
+            }
+        }
+        String mod = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("mac") ? "⌘" : "Ctrl+";
+        c.add(new CommandPalette.Command("Bağlantı", "Gönder (açık sekme)", mod + "⏎", Icons.SEND, this::sendCurrent));
+        c.add(new CommandPalette.Command("Bağlantı", "Başlat", mod + "R", Icons.PLAY, this::startSelected));
+        c.add(new CommandPalette.Command("Bağlantı", "Durdur", mod + ".", Icons.STOP, () -> {
+            Endpoint ep = list.getSelectedValue();
+            if (ep != null) ep.stop();
+        }));
+        c.add(new CommandPalette.Command("Bağlantı", "Tümünü başlat", mod + "⇧R", Icons.PLAY, this::startAll));
+        c.add(new CommandPalette.Command("Bağlantı", "Tümünü durdur", null, Icons.STOP_ALL, () -> {
+            for (Endpoint ep : all()) ep.stop();
+        }));
+        c.add(new CommandPalette.Command("Bağlantı", "Yeni bağlantı…", mod + "T", Icons.ADD, this::addEndpoint));
+        c.add(new CommandPalette.Command("Bağlantı", "Düzenle…", mod + "E", Icons.EDIT, this::editSelected));
+        c.add(new CommandPalette.Command("Bağlantı", "Kopyala", mod + "D", Icons.COPY, this::copySelected));
+        c.add(new CommandPalette.Command("Bağlantı", "Sil", null, Icons.DELETE, this::deleteSelected));
+        int n = 0;
+        for (Endpoint ep : all()) {
+            n++;
+            String key = n <= 9 ? mod + n : null;
+            c.add(new CommandPalette.Command("Git", ep.name() + "  · " + EndpointCell.kindLabel(ep.config().kind), key, null,
+                    () -> list.setSelectedValue(ep, true)));
+        }
+        c.add(new CommandPalette.Command("Proje", "Kaydet", mod + "S", Icons.SAVE, () -> saveProject(false)));
+        c.add(new CommandPalette.Command("Proje", "Proje aç…", mod + "O", Icons.OPEN, this::chooseAndOpenProject));
+        c.add(new CommandPalette.Command("Proje", "Yeni proje", mod + "N", null, this::newProject));
+        c.add(new CommandPalette.Command("Şema", "Şema düzenleyici…", null, Icons.SCHEMA, this::openSchemaEditor));
+        c.add(new CommandPalette.Command("Şema", "Şemaları yeniden yükle", null, Icons.RELOAD, this::reloadSchemas));
+        c.add(new CommandPalette.Command("Trafik", "Trafikte ara", mod + "F", Icons.SEARCH, this::focusTrafficSearch));
+        c.add(new CommandPalette.Command("Trafik", "Trafiği temizle", mod + "L", Icons.CLEAR, trafficPanel::clear));
+        c.add(new CommandPalette.Command("Trafik", "Trafiği dışa aktar (CSV)…", null, Icons.EXPORT, () -> exportTraffic(true)));
+        for (int i = 0; i < bottomTabs.getTabCount(); i++) {
+            java.awt.Component tab = bottomTabs.getComponentAt(i);
+            c.add(new CommandPalette.Command("Sekme", bottomTabs.getTitleAt(i), null, null, () -> bottomTabs.setSelectedComponent(tab)));
+        }
+        for (Theme.Mode mode : Theme.Mode.values()) {
+            c.add(new CommandPalette.Command("Tema", mode.label, null, Icons.THEME, () -> Theme.apply(mode)));
+        }
+        c.add(new CommandPalette.Command("Görünüm", UiMode.advanced() ? "Basit görünüme geç" : "Gelişmiş görünüme geç", null, null,
+                () -> UiMode.set(!UiMode.advanced())));
+        return c;
+    }
+
+    /** ⌘1…⌘9 ile listedeki bağlantıya geçiş. */
+    private void installNumberKeys() {
+        int mask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMask();
+        javax.swing.InputMap im = getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        javax.swing.ActionMap am = getRootPane().getActionMap();
+        for (int i = 1; i <= 9; i++) {
+            int idx = i - 1;
+            im.put(KeyStroke.getKeyStroke(KeyEvent.VK_0 + i, mask), "select-" + i);
+            am.put("select-" + i, action(() -> {
+                if (idx < endpoints.size()) {
+                    list.setSelectedIndex(idx);
+                    list.ensureIndexIsVisible(idx);
+                }
+            }));
+        }
+    }
+
+    private void fillRecent(JMenu menu) {
+        menu.removeAll();
+        List<Path> files = RecentProjects.list();
+        if (files.isEmpty()) {
+            JMenuItem none = new JMenuItem("(henüz yok)");
+            none.setEnabled(false);
+            menu.add(none);
+            return;
+        }
+        for (Path f : files) {
+            JMenuItem i = item(f.getFileName().toString(), null, null, () -> openProject(f));
+            i.setToolTipText(f.toString());
+            menu.add(i);
+        }
+        menu.addSeparator();
+        menu.add(item("Listeyi temizle", null, RecentProjects::clear));
+    }
+
+    /** Pencereye birakilan .json proje dosyasini acar. */
+    private void installDrop() {
+        setTransferHandler(new javax.swing.TransferHandler() {
+            private static final long serialVersionUID = 1L;
+
+            @Override public boolean canImport(TransferSupport t) {
+                return t.isDataFlavorSupported(java.awt.datatransfer.DataFlavor.javaFileListFlavor);
+            }
+
+            @Override public boolean importData(TransferSupport t) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    List<java.io.File> files = (List<java.io.File>) t.getTransferable()
+                            .getTransferData(java.awt.datatransfer.DataFlavor.javaFileListFlavor);
+                    for (java.io.File f : files) {
+                        String n = f.getName().toLowerCase(java.util.Locale.ROOT);
+                        if (n.endsWith(".json")) {
+                            SwingUtilities.invokeLater(() -> openProject(f.toPath()));
+                            return true;
+                        }
+                    }
+                    announce(Toasts.Kind.INFO, "Açılamadı", "Proje dosyası (.json) bırakın.");
+                } catch (java.awt.datatransfer.UnsupportedFlavorException | IOException e) {
+                    announce(Toasts.Kind.ERROR, "Açılamadı", e.getMessage());
+                }
+                return false;
+            }
+        });
+    }
+
     private javax.swing.JPopupMenu themeMenu() {
         javax.swing.JPopupMenu m = new javax.swing.JPopupMenu();
         for (JMenuItem i : themeItems()) m.add(i);
@@ -549,6 +725,13 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
         file.add(item("Kaydet", KeyStroke.getKeyStroke(KeyEvent.VK_S, mask), () -> saveProject(false)));
         file.add(item("Farklı kaydet…", KeyStroke.getKeyStroke(KeyEvent.VK_S, mask | InputEvent.SHIFT_DOWN_MASK),
                 () -> saveProject(true)));
+        JMenu recent = new JMenu("Son projeler");
+        recent.addMenuListener(new javax.swing.event.MenuListener() {
+            @Override public void menuSelected(javax.swing.event.MenuEvent e) { fillRecent(recent); }
+            @Override public void menuDeselected(javax.swing.event.MenuEvent e) { }
+            @Override public void menuCanceled(javax.swing.event.MenuEvent e) { }
+        });
+        file.add(recent);
         file.addSeparator();
         file.add(item("Şema düzenleyici…", null, this::openSchemaEditor));
         file.addSeparator();
@@ -577,7 +760,14 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
             for (Endpoint ep : all()) ep.stop();
         }));
         bar.add(conn);
+        conn.addSeparator();
+        conn.add(item("Gönder", Icons.SEND, KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, mask), this::sendCurrent));
+        conn.add(item("Tümünü başlat", Icons.PLAY, KeyStroke.getKeyStroke(KeyEvent.VK_R, mask | InputEvent.SHIFT_DOWN_MASK), this::startAll));
         JMenu view = new JMenu("Görünüm");
+        view.add(item("Komut paleti…", Icons.COMMAND, KeyStroke.getKeyStroke(KeyEvent.VK_K, mask), this::openPalette));
+        view.add(item("Trafikte ara", Icons.SEARCH, KeyStroke.getKeyStroke(KeyEvent.VK_F, mask), this::focusTrafficSearch));
+        view.add(item("Trafiği temizle", Icons.CLEAR, KeyStroke.getKeyStroke(KeyEvent.VK_L, mask), trafficPanel::clear));
+        view.addSeparator();
         javax.swing.ButtonGroup modes = new javax.swing.ButtonGroup();
         simpleItem = new javax.swing.JRadioButtonMenuItem("Basit görünüm", !UiMode.advanced());
         advancedItem = new javax.swing.JRadioButtonMenuItem("Gelişmiş görünüm", UiMode.advanced());
@@ -712,11 +902,12 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
         scenarioPanel.setText(p.scenario);
         applyLayout(p.layout);
         projectFile = file;
+        if (isShowing()) RecentProjects.add(file);
         updateTitle();
         endpointsChanged();
         if (!endpoints.isEmpty()) list.setSelectedIndex(0);
         selectionChanged();
-        statusBar.setText("Proje açıldı: " + file.getFileName() + " (" + endpoints.size() + " bağlantı)");
+        announce(Toasts.Kind.OK, "Proje açıldı", file.getFileName() + " · " + endpoints.size() + " bağlantı");
         if (!problems.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Bazı değerler uygulanamadı:\n" + String.join("\n",
                     problems.subList(0, Math.min(20, problems.size()))) + (problems.size() > 20 ? "\n…" : ""),
@@ -767,8 +958,9 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
         try {
             p.save(file);
             projectFile = file;
+            RecentProjects.add(file);
             updateTitle();
-            statusBar.setText("Kaydedildi: " + file);
+            announce(Toasts.Kind.OK, "Proje kaydedildi", file.toString());
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, e.getMessage(), "Kaydedilemedi", JOptionPane.ERROR_MESSAGE);
         }
@@ -789,7 +981,7 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
         File f = fc.getSelectedFile();
         try {
             Files.write(f.toPath(), (csv ? TrafficExport.csv(rows) : TrafficExport.text(rows)).getBytes(StandardCharsets.UTF_8));
-            statusBar.setText(rows.size() + " kayıt dışa aktarıldı: " + f.getName());
+            announce(Toasts.Kind.OK, "Dışa aktarıldı", rows.size() + " kayıt · " + f.getName());
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, e.getMessage(), "Yazılamadı", JOptionPane.ERROR_MESSAGE);
         }
@@ -810,7 +1002,7 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
         if (!f.getName().contains(".")) f = new File(f.getPath() + ".rec");
         try {
             rec.save(f.toPath());
-            statusBar.setText(rec.entries.size() + " çerçeve kaydedildi: " + f.getName() + " (Tekrar oynat sekmesinden oynatılabilir)");
+            announce(Toasts.Kind.OK, "Kayıt oluşturuldu", rec.entries.size() + " çerçeve · " + f.getName() + " (Tekrar oynat sekmesinden oynatılabilir)");
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, e.getMessage(), "Yazılamadı", JOptionPane.ERROR_MESSAGE);
         }
@@ -1055,7 +1247,8 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
             if (attachSchema(ep)) ok++;
         }
         selectionChanged();
-        statusBar.setText(total == 0 ? "Şema atanmış bağlantı yok." : ok + " / " + total + " bağlantının şeması yeniden yüklendi.");
+        if (total == 0) announce(Toasts.Kind.INFO, "Şemalar", "Şema atanmış bağlantı yok.");
+        else announce(ok == total ? Toasts.Kind.OK : Toasts.Kind.WARN, "Şemalar yeniden yüklendi", ok + " / " + total + " bağlantı");
     }
 
     private List<Endpoint> all() { return Collections.list(endpoints.elements()); }
@@ -1167,13 +1360,24 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
         LogEntry e;
         while ((e = pending.poll()) != null) {
             batch.add(e);
+            if (e.dir == comm.core.Direction.ERROR && toasts != null) {
+                // ayni baglantidan gelen hata yagmuru tek bildirime iner
+                toasts.show(Toasts.Kind.ERROR, e.endpoint.name(), e.text, "err:" + System.identityHashCode(e.endpoint), 15000);
+            }
             ParameterStore st = stores.get(e.endpoint);
             if (st != null) st.record(e);
             chartPanel.offer(e);
         }
         trafficPanel.append(batch);
+        list.repaint(); // etkinlik vurgusu hemen yansisin
         sendPanel.refreshValues();
         paramsPanel.refreshIfChanged();
+    }
+
+    /** Durum cubuguna yazar ve kosede bildirim gosterir. */
+    void announce(Toasts.Kind kind, String title, String text) {
+        statusBar.setText(title + (text == null || text.isEmpty() ? "" : ": " + text));
+        if (toasts != null) toasts.show(kind, title, text);
     }
 
     private void updateStatus() {

@@ -9,6 +9,11 @@ public final class Hex {
 
     private Hex() { }
 
+    /** Tek byte'in iki haneli buyuk harf hex'i. */
+    public static String byteHex(int v) {
+        return new String(new char[]{DIGITS[(v >> 4) & 0xF], DIGITS[v & 0xF]});
+    }
+
     public static String toHex(byte[] b) {
         return toHex(b, 0, b.length, " ");
     }

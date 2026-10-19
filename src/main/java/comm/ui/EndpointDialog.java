@@ -56,6 +56,9 @@ final class EndpointDialog extends JDialog {
     private final JComboBox<String> networkInterface = new JComboBox<>();
     private final JSpinner ttl = new JSpinner(new SpinnerNumberModel(1, 0, 255, 1));
     private final JCheckBox broadcast = new JCheckBox("Broadcast gönderimine izin ver");
+    private final JCheckBox mcLoop = new JCheckBox("Gönderilen multicast paketi bu makinede de alınsın (loopback)");
+    private final JCheckBox noDelay = new JCheckBox("No delay (Nagle kapalı: küçük paketler beklemeden gider)");
+    private final JCheckBox keepAlive = new JCheckBox("Keep-alive (bağlantı kopmasını işletim sistemi yoklar)");
     private final JComboBox<FramingConfig.Type> framing = new JComboBox<>(FramingConfig.Type.values());
     private final JComboBox<Integer> lengthSize = new JComboBox<>(new Integer[]{1, 2, 4});
     private final JCheckBox bigEndian = new JCheckBox("Big endian");
@@ -102,7 +105,7 @@ final class EndpointDialog extends JDialog {
     private final JPanel form = new JPanel(new GridBagLayout());
     private final List<JComponent[]> rows = new ArrayList<>();
     private JComponent[] localAddrRow, localPortRow, remoteHostRow, remotePortRow, reconnectRow,
-            groupRow, ifaceRow, ttlRow, broadcastRow, framingRow, lenSizeRow, endianRow, headerRow,
+            groupRow, ifaceRow, ttlRow, broadcastRow, mcLoopRow, noDelayRow, keepAliveRow, framingRow, lenSizeRow, endianRow, headerRow,
             delimRow, fixedRow, schemaRow, ovOrderRow, ovForceRow, ovChecksumRow, ovFromRow, ovLengthRow,
             ovAdjustRow, unitRow, anyUnitRow, delayRow, timeoutRow, versionRow, readComRow,
             writeComRow, userRow, authRow, authPassRow, privRow, privPassRow, snmpTimeoutRow, retriesRow,
@@ -111,6 +114,7 @@ final class EndpointDialog extends JDialog {
     private java.util.List<comm.core.ModbusPoll> polls = new java.util.concurrent.CopyOnWriteArrayList<>();
     private java.util.List<comm.core.ResponseRule> rules = new java.util.concurrent.CopyOnWriteArrayList<>();
     private java.util.List<comm.core.LiveGenerator> liveGens = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private java.util.List<comm.core.MessagePreset> presets = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     private EndpointDialog(Window owner, String title, EndpointConfig cfg) {
         super(owner, title, ModalityType.APPLICATION_MODAL);
@@ -132,6 +136,9 @@ final class EndpointDialog extends JDialog {
         ifaceRow = row("Ağ arayüzü", networkInterface);
         ttlRow = row("Multicast TTL", ttl);
         broadcastRow = row("", broadcast);
+        mcLoopRow = row("", mcLoop);
+        noDelayRow = row("TCP", noDelay);
+        keepAliveRow = row("", keepAlive);
         section("Çerçeveleme");
         framingRow = row("Çerçeveleme", framing);
         lenSizeRow = row("Uzunluk alanı (byte)", lengthSize);
@@ -159,6 +166,11 @@ final class EndpointDialog extends JDialog {
         ovAdjustOn.addActionListener(e -> updateVisibility());
         ovOrder.addActionListener(e -> updateVisibility());
         schemaFile.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { updateVisibility(); }
+            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { updateVisibility(); }
+            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { updateVisibility(); }
+        });
+        multicastGroup.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { updateVisibility(); }
             @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { updateVisibility(); }
             @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { updateVisibility(); }
@@ -366,6 +378,9 @@ final class EndpointDialog extends JDialog {
         setRowVisible(ifaceRow, udp);
         setRowVisible(ttlRow, udp);
         setRowVisible(broadcastRow, udp);
+        setRowVisible(mcLoopRow, udp && !multicastGroup.getText().trim().isEmpty());
+        setRowVisible(noDelayRow, tcp || k.isModbus() || k.isWebSocket());
+        setRowVisible(keepAliveRow, tcp || k.isModbus() || k.isWebSocket());
         FramingConfig.Type f = (FramingConfig.Type) framing.getSelectedItem();
         setRowVisible(framingRow, tcp);
         setRowVisible(lenSizeRow, tcp && f == FramingConfig.Type.LENGTH_PREFIX);
@@ -375,7 +390,7 @@ final class EndpointDialog extends JDialog {
         setRowVisible(fixedRow, tcp && f == FramingConfig.Type.FIXED);
         if (!showAdvanced.isSelected()) {
             for (JComponent[] r : new JComponent[][]{ovOrderRow, ovForceRow, ovChecksumRow, ovFromRow, ovLengthRow, ovAdjustRow,
-                    fEnabledRow, fRow1, fRow2, fRow3, fRow4, wsProtoRow, wsPingRow, delayRow}) {
+                    fEnabledRow, fRow1, fRow2, fRow3, fRow4, wsProtoRow, wsPingRow, delayRow, noDelayRow, keepAliveRow, mcLoopRow}) {
                 setRowVisible(r, false);
             }
         }
@@ -399,6 +414,9 @@ final class EndpointDialog extends JDialog {
         networkInterface.setSelectedItem(c.networkInterface);
         ttl.setValue(c.multicastTtl);
         broadcast.setSelected(c.broadcast);
+        mcLoop.setSelected(c.multicastLoopback);
+        noDelay.setSelected(c.tcpNoDelay);
+        keepAlive.setSelected(c.tcpKeepAlive);
         framing.setSelectedItem(c.framing.type);
         lengthSize.setSelectedItem(c.framing.lengthSize);
         bigEndian.setSelected(c.framing.bigEndian);
@@ -423,6 +441,7 @@ final class EndpointDialog extends JDialog {
         polls = c.modbusPolls;
         rules = c.rules;
         liveGens = c.liveGenerators;
+        presets = c.presets;
         snmpVersion.setSelectedItem(c.snmpVersion);
         readCommunity.setText(c.snmpReadCommunity);
         writeCommunity.setText(c.snmpWriteCommunity);
@@ -537,6 +556,9 @@ final class EndpointDialog extends JDialog {
         c.networkInterface = iface == null ? "" : iface.toString().trim();
         c.multicastTtl = (Integer) ttl.getValue();
         c.broadcast = broadcast.isSelected();
+        c.multicastLoopback = mcLoop.isSelected();
+        c.tcpNoDelay = noDelay.isSelected();
+        c.tcpKeepAlive = keepAlive.isSelected();
         c.framing.type = (FramingConfig.Type) framing.getSelectedItem();
         c.framing.lengthSize = (Integer) lengthSize.getSelectedItem();
         c.framing.bigEndian = bigEndian.isSelected();
@@ -587,6 +609,7 @@ final class EndpointDialog extends JDialog {
         c.faults.jitterMs = (Integer) fJitter.getValue();
         c.rules = rules; // kurallar Kurallar sekmesinden duzenlenir
         c.liveGenerators = liveGens;
+        c.presets = presets; // hazir mesajlar Mesaj sekmesinden duzenlenir
 
         String problem = null;
         if (c.name.isEmpty()) problem = "Ad boş olamaz.";

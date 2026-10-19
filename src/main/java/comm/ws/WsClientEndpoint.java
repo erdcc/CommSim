@@ -39,6 +39,8 @@ public final class WsClientEndpoint extends Endpoint {
             try {
                 s.connect(new InetSocketAddress(config.remoteHost, config.remotePort), CONNECT_TIMEOUT_MS);
                 s.setSoTimeout(10_000);
+                s.setTcpNoDelay(config().tcpNoDelay);
+                s.setKeepAlive(config().tcpKeepAlive);
                 c = WsConnection.connect(s, config.remoteHost, config.remotePort, config.wsPath, config.wsSubprotocol);
                 s.setSoTimeout(0);
             } catch (IOException e) {

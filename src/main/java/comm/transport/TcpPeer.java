@@ -12,9 +12,10 @@ final class TcpPeer {
     final String addr;
     private final OutputStream out;
 
-    TcpPeer(Socket s) throws IOException {
+    TcpPeer(Socket s, comm.core.EndpointConfig c) throws IOException {
         socket = s;
-        s.setTcpNoDelay(true);
+        s.setTcpNoDelay(c.tcpNoDelay);
+        s.setKeepAlive(c.tcpKeepAlive);
         out = new BufferedOutputStream(s.getOutputStream());
         addr = s.getInetAddress().getHostAddress() + ":" + s.getPort();
     }

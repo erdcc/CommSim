@@ -65,6 +65,7 @@ public final class UdpEndpoint extends Endpoint {
                 ms.setReuseAddress(true);
                 ms.bind(new InetSocketAddress(config.localPort));
                 ms.setTimeToLive(config.multicastTtl);
+                ms.setLoopbackMode(!config.multicastLoopback); // Java'da true = loopback KAPALI
                 InetAddress group = InetAddress.getByName(config.multicastGroup);
                 if (!group.isMulticastAddress()) throw new IOException(config.multicastGroup + " multicast adresi değil");
                 NetworkInterface ni = null;

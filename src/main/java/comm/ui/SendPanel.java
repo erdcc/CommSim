@@ -177,6 +177,7 @@ final class SendPanel extends JPanel {
         rebuildTabs(ep);
         updatePeriodic();
         messagePanel.setStore(store);
+        messagePanel.setPresets(on && !ep.config().kind.isModbus() && !ep.config().kind.isSnmp() ? ep.config().presets : null);
         modbusPanel.setEndpoint(on && ep.config().kind.isModbus() ? ep : null);
         snmpPanel.setEndpoint(on && ep.config().kind.isSnmp() ? ep : null);
         if (rulesPanel != null) rulesPanel.setEndpoint(on && !ep.config().kind.isModbus() && !ep.config().kind.isSnmp() ? ep : null);
@@ -313,6 +314,21 @@ final class SendPanel extends JPanel {
         modbusPanel.refresh();
         snmpPanel.refresh();
         if (rulesPanel != null) rulesPanel.refresh();
+    }
+
+    MessagePanel messagePanel() { return messagePanel; }
+
+    /** Acik sekmedeki icerigi gonderir (Mesaj ya da Ham); gonderilemediyse false. */
+    boolean sendCurrent() {
+        int i = tabs.getSelectedIndex();
+        String t = i < 0 ? "" : tabs.getTitleAt(i);
+        if ("Ham".equals(t)) {
+            if (!rawSendButton.isEnabled()) return false;
+            sendRaw();
+            return true;
+        }
+        if ("Mesaj".equals(t) || "Parametreler".equals(t)) return messagePanel.sendNow();
+        return false;
     }
 
     /** Ham sekmesine hex yazar ve o sekmeyi acar. */

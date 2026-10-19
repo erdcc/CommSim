@@ -70,6 +70,33 @@ class RuntimeTest {
         assertThrows(IllegalArgumentException.class, () -> eval("1 / 0"));
     }
 
+    @Test void presetsSnapshotAndApplyValues() throws Exception {
+        Schema s = SchemaParser.parse(Paths.get("schemas/ornek.def"));
+        ParameterStore st = new ParameterStore();
+        st.setSchema(s);
+        MessageDef komut = s.byName("KOMUT");
+        st.state(komut).txBody.put("command", "RTB");
+        st.state(komut).txBody.put("lat", 41.0);
+        comm.core.MessagePreset p = st.snapshot(komut, "Eve dön");
+        assertEquals("KOMUT", p.message);
+        assertEquals("RTB", p.values.get("command"));
+        st.resetDefaults(komut);
+        assertEquals("HOLD", st.state(komut).txBody.get("command"));
+        long v = st.version();
+        assertTrue(st.apply(p).isEmpty());
+        assertTrue(st.version() > v);
+        assertEquals("RTB", st.state(komut).txBody.get("command"));
+        assertEquals(41.0, st.state(komut).txBody.get("lat"));
+        // semada olmayan alan uyari olarak doner, digerleri yine uygulanir
+        p.values.put("yok", "1");
+        List<String> problems = st.apply(p);
+        assertEquals(1, problems.size());
+        assertEquals("RTB", st.state(komut).txBody.get("command"));
+        comm.core.MessagePreset missing = new comm.core.MessagePreset();
+        missing.message = "BOYLE_MESAJ_YOK";
+        assertThrows(IllegalArgumentException.class, () -> st.apply(missing));
+    }
+
     @Test void messageGeneratorsAdvanceOnlyOnSend() throws Exception {
         Schema s = SchemaParser.parse(Paths.get("schemas/ornek.def"));
         ParameterStore st = new ParameterStore();

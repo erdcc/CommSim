@@ -46,8 +46,7 @@ public final class WsConnection {
     private volatile boolean closeSent;
 
     private WsConnection(Socket s, boolean client) throws IOException {
-        socket = s;
-        s.setTcpNoDelay(true);
+        socket = s; // soket secenekleri (no delay, keep-alive) ucta ayarlanir
         in = new DataInputStream(new BufferedInputStream(s.getInputStream()));
         out = new BufferedOutputStream(s.getOutputStream());
         this.client = client;

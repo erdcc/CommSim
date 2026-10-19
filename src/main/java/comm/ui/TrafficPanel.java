@@ -16,7 +16,6 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTable;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
@@ -40,13 +39,32 @@ final class TrafficPanel extends JPanel {
     private static final String[] DIRECTIONS = {"Tümü", "Alınan", "Gönderilen", "Olaylar"};
 
     private final TrafficTableModel model = new TrafficTableModel();
-    private final JTable table = new JTable(model);
+    private final JTable table = new JTable(model) {
+        private static final long serialVersionUID = 1L;
+
+        /** Bos tabloda ne yapilacagini soyleyen ipucu. */
+        @Override protected void paintComponent(java.awt.Graphics g) {
+            super.paintComponent(g);
+            if (getRowCount() > 0) return;
+            String msg = model.totalCount() == 0
+                    ? "Henüz trafik yok — bir bağlantıyı başlatıp mesaj gönderin"
+                    : "Filtreye uyan kayıt yok";
+            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+            g2.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB);
+            g2.setColor(Theme.muted());
+            g2.setFont(getFont());
+            java.awt.FontMetrics fm = g2.getFontMetrics();
+            java.awt.Rectangle v = getVisibleRect();
+            g2.drawString(msg, v.x + (v.width - fm.stringWidth(msg)) / 2, v.y + Math.max(fm.getAscent() + 16, v.height / 2));
+            g2.dispose();
+        }
+    };
     private final JComboBox<Object> endpointBox = new JComboBox<>();
     private final JComboBox<String> dirBox = new JComboBox<>(DIRECTIONS);
     private final JTextField search = new JTextField(18);
     private final JCheckBox autoScroll = new JCheckBox("Otomatik kaydır", true);
     private final JLabel countLabel = new JLabel();
-    private final JTextArea detail = new JTextArea();
+    private final FrameInspector detail = new FrameInspector();
 
     TrafficPanel() {
         super(new BorderLayout());
@@ -96,12 +114,7 @@ final class TrafficPanel extends JPanel {
         int[] widths = {48, 116, 150, 58, 130, 44, 70, 170, 330, 140};
         for (int i = 0; i < widths.length; i++) cols.getColumn(i).setPreferredWidth(widths[i]);
 
-        detail.setEditable(false);
-        detail.setFont(mono);
-        detail.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
-
-        split = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
-                new JScrollPane(table), new JScrollPane(detail));
+        split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, tableHolder(), detail);
         split.setResizeWeight(0.7);
         add(split, BorderLayout.CENTER);
 
@@ -112,11 +125,7 @@ final class TrafficPanel extends JPanel {
             @Override public void removeUpdate(DocumentEvent e) { applyFilter(); }
             @Override public void changedUpdate(DocumentEvent e) { applyFilter(); }
         });
-        clear.addActionListener(e -> {
-            model.clear();
-            detail.setText("");
-            updateCount();
-        });
+        clear.addActionListener(e -> clear());
         table.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) showDetail();
         });
@@ -132,6 +141,21 @@ final class TrafficPanel extends JPanel {
         for (Endpoint ep : endpoints) m.addElement(ep);
         endpointBox.setModel(m);
         endpointBox.setSelectedItem(endpoints.contains(selected) ? selected : ALL);
+    }
+
+    void clear() {
+        model.clear();
+        detail.show(null);
+        updateCount();
+    }
+
+    void focusSearch() {
+        search.requestFocusInWindow();
+        search.selectAll();
+    }
+
+    private JScrollPane tableHolder() {
+        return new JScrollPane(table);
     }
 
     void append(List<LogEntry> batch) {
@@ -197,12 +221,7 @@ final class TrafficPanel extends JPanel {
 
     private void showDetail() {
         int r = table.getSelectedRow();
-        if (r < 0) {
-            detail.setText("");
-            return;
-        }
-        detail.setText(describe(model.row(table.convertRowIndexToModel(r)).entry));
-        detail.setCaretPosition(0);
+        detail.show(r < 0 ? null : model.row(table.convertRowIndexToModel(r)).entry);
     }
 
     /** Trafik satirlarindan tetiklenen eylemler (ana pencere saglar). */

@@ -78,7 +78,7 @@ public class TcpServerEndpoint extends Endpoint {
     private void addPeer(ServerSocket ss, Socket s) {
         TcpPeer p;
         try {
-            p = new TcpPeer(s);
+            p = new TcpPeer(s, config());
         } catch (IOException e) {
             try { s.close(); } catch (IOException ignored) { /* kapaniyor */ }
             return;

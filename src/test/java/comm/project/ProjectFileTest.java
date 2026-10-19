@@ -36,6 +36,14 @@ class ProjectFileTest {
         c.modbusPolls.add(poll);
         c.snmpVersion = "V3";
         c.snmpUser = "u";
+        c.tcpNoDelay = false;
+        c.tcpKeepAlive = true;
+        c.multicastLoopback = false;
+        comm.core.MessagePreset preset = new comm.core.MessagePreset();
+        preset.name = "Eve dön";
+        preset.message = "KOMUT";
+        preset.values.put("command", "RTB");
+        c.presets.add(preset);
         ProjectFile.EndpointEntry e = new ProjectFile.EndpointEntry();
         e.config = c;
         e.txMessages.put("KONUM", Collections.singletonMap("speed", "7"));
@@ -58,6 +66,15 @@ class ProjectFileTest {
         assertEquals(250, d.modbusPolls.get(0).intervalMs);
         assertTrue(d.modbusPolls instanceof java.util.concurrent.CopyOnWriteArrayList);
         assertEquals("V3", d.snmpVersion);
+        assertEquals(false, d.tcpNoDelay);
+        assertEquals(true, d.tcpKeepAlive);
+        assertEquals(false, d.multicastLoopback);
+        assertTrue(d.presets instanceof java.util.concurrent.CopyOnWriteArrayList);
+        assertEquals("RTB", d.presets.get(0).values.get("command"));
+        EndpointConfig copy = d.copy();
+        copy.presets.get(0).values.put("command", "HOLD");
+        assertEquals("RTB", d.presets.get(0).values.get("command")); // kopya bagimsiz
+        assertEquals(false, copy.tcpNoDelay);
         assertEquals("7", q.endpoints.get(0).txMessages.get("KONUM").get("speed"));
         assertEquals(Integer.valueOf(65535), q.endpoints.get(0).modbusTables.get("HOLDING").get(3));
         assertEquals("log merhaba\n", q.scenario);

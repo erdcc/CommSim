@@ -163,6 +163,26 @@ final class Icons {
         g.fill(new Ellipse2D.Double(7.2, 11, 1.6, 1.6));
     });
 
+    static final Icon STAR = of(Theme::warn, g -> {
+        Path2D p = new Path2D.Double();
+        for (int i = 0; i < 10; i++) {
+            double r = i % 2 == 0 ? 6.2 : 2.7;
+            double a = -Math.PI / 2 + i * Math.PI / 5;
+            double x = 8 + r * Math.cos(a);
+            double y = 8.6 + r * Math.sin(a);
+            if (i == 0) p.moveTo(x, y);
+            else p.lineTo(x, y);
+        }
+        p.closePath();
+        g.draw(p);
+    });
+
+    static final Icon COMMAND = of(g -> {
+        g.draw(new java.awt.geom.RoundRectangle2D.Double(2.5, 3.5, 11, 9, 3, 3));
+        g.draw(path(5, 6.5, 7, 8, 5, 9.5));
+        line(g, 8.5, 10, 11, 10);
+    });
+
     /** Vurgulu (mavi zeminli) butonlar icin ayni ikonun beyaz cizimi. */
     static Icon onAccent(Icon icon) {
         if (!(icon instanceof VIcon)) return icon;

@@ -61,7 +61,7 @@ public class TcpClientEndpoint extends Endpoint {
             }
             TcpPeer p;
             try {
-                p = new TcpPeer(s);
+                p = new TcpPeer(s, config());
             } catch (IOException e) {
                 closeQuietly(s);
                 if (!retry(token)) return;

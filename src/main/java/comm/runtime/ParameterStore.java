@@ -206,6 +206,33 @@ public final class ParameterStore {
         changed();
     }
 
+    /** Mesajin su anki gonderilecek degerlerini adlandirilmis bir hazir mesaj olarak dondurur. */
+    public comm.core.MessagePreset snapshot(MessageDef m, String name) {
+        MsgState st = state(m);
+        if (st == null) throw new IllegalArgumentException(m == null ? "mesaj seçilmedi" : m.name + " şemada yok");
+        comm.core.MessagePreset p = new comm.core.MessagePreset();
+        p.name = name;
+        p.message = m.name;
+        p.values = Values.toTexts(m.body, st.txBody, "");
+        return p;
+    }
+
+    /**
+     * Hazir mesaji gonderilecek degerlere uygular (once varsayilanlar, sonra kayitli metinler).
+     * @return uygulanamayan alanlar icin uyarilar
+     * @throws IllegalArgumentException mesaj semada yoksa
+     */
+    public List<String> apply(comm.core.MessagePreset p) {
+        MessageDef m = schema == null ? null : schema.byName(p.message);
+        MsgState st = state(m);
+        if (m == null || st == null) throw new IllegalArgumentException("'" + p.message + "' mesajı şemada yok");
+        st.txBody.clear();
+        Values.complete(m.body, st.txBody);
+        List<String> problems = Values.applyTexts(m.body, st.txBody, "", p.values);
+        changed();
+        return problems;
+    }
+
     public void changed() { version++; }
 
     public long version() { return version; }

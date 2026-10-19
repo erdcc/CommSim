@@ -71,6 +71,8 @@ public final class ProjectFile {
             if (e.txHeader == null) e.txHeader = new LinkedHashMap<>();
             if (e.txMessages == null) e.txMessages = new LinkedHashMap<>();
             if (e.generators == null) e.generators = new LinkedHashMap<>();
+            e.config.presets = e.config.presets == null ? new java.util.concurrent.CopyOnWriteArrayList<>()
+                    : new java.util.concurrent.CopyOnWriteArrayList<>(e.config.presets);
             if (e.config.modbusPolls == null) e.config.modbusPolls = new java.util.concurrent.CopyOnWriteArrayList<>();
             else e.config.modbusPolls = new java.util.concurrent.CopyOnWriteArrayList<>(e.config.modbusPolls);
             if (e.config.framing == null) e.config.framing = new comm.core.FramingConfig();

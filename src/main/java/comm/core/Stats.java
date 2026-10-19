@@ -10,15 +10,19 @@ public final class Stats {
     private final AtomicLong txBytes = new AtomicLong();
     private final AtomicLong errors = new AtomicLong();
     private volatile String lastError = "";
+    private volatile long lastRx;
+    private volatile long lastTx;
 
     void rx(int bytes) {
         rxFrames.incrementAndGet();
         rxBytes.addAndGet(bytes);
+        lastRx = System.currentTimeMillis();
     }
 
     void tx(int bytes) {
         txFrames.incrementAndGet();
         txBytes.addAndGet(bytes);
+        lastTx = System.currentTimeMillis();
     }
 
     void error(String message) {
@@ -32,6 +36,9 @@ public final class Stats {
     public long txBytes() { return txBytes.get(); }
     public long errors() { return errors.get(); }
     public String lastError() { return lastError; }
+    /** Son alinan / gonderilen cercevenin zamani (ms); hic yoksa 0. */
+    public long lastRx() { return lastRx; }
+    public long lastTx() { return lastTx; }
 
     public void reset() {
         rxFrames.set(0);
@@ -40,5 +47,7 @@ public final class Stats {
         txBytes.set(0);
         errors.set(0);
         lastError = "";
+        lastRx = 0;
+        lastTx = 0;
     }
 }
