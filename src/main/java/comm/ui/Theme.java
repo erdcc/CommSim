@@ -85,6 +85,7 @@ public final class Theme {
         } catch (RuntimeException | LinkageError e) {
             monoFamily = Font.MONOSPACED;
         }
+        MacRetina.install(); // Java 8 + macOS: Retina olcegi (pencerelerden once)
         installUiFont();
         Map<String, String> extra = new HashMap<>();
         extra.put("@accentColor", "#2F6FEB");

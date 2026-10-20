@@ -27,6 +27,11 @@ java -jar target/commsim.jar projects/ornek-proje.json   # bir projeyle açar
   ```
 
   Java 8 yolu `JAVA8_HOME` ile verilir; verilmezse macOS'ta `/usr/libexec/java_home -v 1.8` kullanılır.
+- **Java 8'de Retina (macOS):** Java 8, Apple Silicon Mac'lerde ekran ölçeğini yanlış (1) okuduğu
+  için uygulamayı yarım çözünürlükte çizer ve yazılar bulanık görünür. Uygulama Java 8'de açılışta
+  her ekranın gerçek ölçeğini macOS'tan alıp Java 8'e verir; Retina ekranda yazılar nettir, Retina
+  olmayan monitörde ölçek 1 kalır. `-Dcommsim.retinaScale=2` elle ölçek verir, `0` kapatır. Java 9 ve
+  üstünde bu düzeltmeye gerek yoktur.
 - **Java 8'de yazı tipi:** Java 8, sistem yazı tipinde olmayan işaretleri (↓ ⚠ ✓ …) çizerken
   macOS'ta aynı satırdaki sonraki harfleri kaybediyor, Windows'ta kutucuk gösterebiliyor. Bu yüzden
   Java 8'de arayüz yazı tipi olarak jar'a gömülü **DejaVu Sans** kullanılır (tüm işaretleri içerir);
