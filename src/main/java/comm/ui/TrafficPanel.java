@@ -115,7 +115,9 @@ final class TrafficPanel extends JPanel {
         for (int i = 0; i < widths.length; i++) cols.getColumn(i).setPreferredWidth(widths[i]);
 
         split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, tableHolder(), detail);
-        split.setResizeWeight(0.7);
+        split.setResizeWeight(0.6);
+        detail.setMinimumSize(new java.awt.Dimension(100, 80));
+        detail.setPreferredSize(new java.awt.Dimension(600, 200));
         add(split, BorderLayout.CENTER);
 
         endpointBox.addActionListener(e -> applyFilter());
@@ -155,7 +157,11 @@ final class TrafficPanel extends JPanel {
     }
 
     private JScrollPane tableHolder() {
-        return new JScrollPane(table);
+        JScrollPane sp = new JScrollPane(table);
+        // tablo en az birkac satir gostersin; inceleme paneli ne kadar buyuk isterse istesin
+        sp.setMinimumSize(new java.awt.Dimension(100, 90));
+        sp.setPreferredSize(new java.awt.Dimension(600, 260));
+        return sp;
     }
 
     void append(List<LogEntry> batch) {
@@ -247,7 +253,8 @@ final class TrafficPanel extends JPanel {
     }
 
     void setSplitRatio(double r) {
-        if (r > 0.05 && r < 0.98) split.setDividerLocation(r);
+        // tabloyu ya da incelemeyi neredeyse kapatan eski kayitlar yok sayilir
+        if (r > 0.2 && r < 0.9) split.setDividerLocation(r);
     }
 
     int[] columnWidths() {

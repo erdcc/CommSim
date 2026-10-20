@@ -38,6 +38,42 @@ public final class Theme {
 
     private Theme() { }
 
+    /** Java 8 (1.x) calisma ortami mi. */
+    public static boolean legacyJava() { return System.getProperty("java.specification.version", "").startsWith("1."); }
+
+    /**
+     * Java 8'de arayuz yazi tipi olarak gomulu DejaVu Sans kullanilir. Java 8 macOS'ta sistem yazi tipinde olmayan bir
+     * isaret (↓ ⚠ ✓ ...) yedek yazi tipinden cizilince ayni satirdaki sonraki harfler kayboluyor; Windows'ta bu
+     * isaretler kutucuk olabiliyor. DejaVu Sans arayuzdeki tum isaretleri icerir, yedege hic gerek kalmaz.
+     * -Dcommsim.bundledFont=true|false ile zorlanabilir.
+     */
+    private static void installUiFont() {
+        String force = System.getProperty("commsim.bundledFont");
+        boolean use = force != null ? Boolean.parseBoolean(force) : legacyJava();
+        if (!use) return;
+        try {
+            java.awt.GraphicsEnvironment ge = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment();
+            for (String f : new String[]{"DejaVuSans.ttf", "DejaVuSans-Bold.ttf"}) {
+                try (java.io.InputStream in = Theme.class.getResourceAsStream("fonts/" + f)) {
+                    if (in == null) return;
+                    ge.registerFont(Font.createFont(Font.TRUETYPE_FONT, in));
+                }
+            }
+            FlatLaf.setPreferredFontFamily(BUNDLED_FONT);
+            FlatLaf.setPreferredLightFontFamily(BUNDLED_FONT);
+            FlatLaf.setPreferredSemiboldFontFamily(BUNDLED_FONT);
+            bundledFont = true;
+        } catch (java.io.IOException | java.awt.FontFormatException | RuntimeException e) {
+            // sistem yazi tipiyle devam
+        }
+    }
+
+    private static final String BUNDLED_FONT = "DejaVu Sans";
+    private static boolean bundledFont;
+
+    /** Gomulu arayuz yazi tipi etkin mi. */
+    public static boolean bundledFont() { return bundledFont; }
+
     /** Uygulama acilisinda, ilk pencereden once cagrilir. */
     public static void install() {
         System.setProperty("apple.laf.useScreenMenuBar", "true");
@@ -49,6 +85,7 @@ public final class Theme {
         } catch (RuntimeException | LinkageError e) {
             monoFamily = Font.MONOSPACED;
         }
+        installUiFont();
         Map<String, String> extra = new HashMap<>();
         extra.put("@accentColor", "#2F6FEB");
         FlatLaf.setGlobalExtraDefaults(extra);

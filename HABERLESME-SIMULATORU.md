@@ -18,8 +18,19 @@ java -jar target/commsim.jar projects/ornek-proje.json   # bir projeyle açar
 
 - `target/commsim.jar` tüm bağımlılıkları içerir: SNMP4J 2.8.18, Jackson 2.17, FlatLaf 3.5
   (görünüm), JetBrains Mono (hex görünümü) Groovy 4.0 (Groovy senaryoları) ve RSyntaxTextArea/AutoComplete (senaryo editörü). Jar yaklaşık 14 MB'tır.
-- Bytecode Java 8 içindir (`release=8`, sınıf sürümü 52). Derleme JDK 21 ile yapıldı ve
-  testler JDK 21 üzerinde koşturuldu. **Gerçek bir Java 8 çalışma ortamında henüz denenmedi.**
+- Bytecode Java 8 içindir (`release=8`, sınıf sürümü 52); tüm bağımlılıklar da Java 8 uyumludur.
+  Derleme JDK 21 ile yapılır. **Java 8 üzerinde doğrulandı** (Azul Zulu 8u504): 80 testin hepsi ve
+  örnek senaryolar Java 8 ile geçer, arayüz Java 8'de açılıp kontrol edildi. Denetimi tekrarlamak için:
+
+  ```bash
+  ./check-java8.sh               # testleri ve örnek senaryoları Java 8 ile çalıştırır
+  ```
+
+  Java 8 yolu `JAVA8_HOME` ile verilir; verilmezse macOS'ta `/usr/libexec/java_home -v 1.8` kullanılır.
+- **Java 8'de yazı tipi:** Java 8, sistem yazı tipinde olmayan işaretleri (↓ ⚠ ✓ …) çizerken
+  macOS'ta aynı satırdaki sonraki harfleri kaybediyor, Windows'ta kutucuk gösterebiliyor. Bu yüzden
+  Java 8'de arayüz yazı tipi olarak jar'a gömülü **DejaVu Sans** kullanılır (tüm işaretleri içerir);
+  Java 9 ve üstünde sistem yazı tipi kalır. `-Dcommsim.bundledFont=true|false` ile değiştirilebilir.
 - macOS'ta `/usr/bin/java` bir yer tutucudur. `commsim.sh`, Homebrew'daki `openjdk@21`'i kullanır.
 
 ## Ekran düzeni

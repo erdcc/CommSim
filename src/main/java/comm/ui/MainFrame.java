@@ -433,7 +433,7 @@ public final class MainFrame extends JFrame implements TrafficBus.Listener, Scen
         SwingUtilities.invokeLater(() -> {
             validate();
             if (l.listWidth >= 200) main.setDividerLocation(l.listWidth);
-            if (l.rightRatio > 0.05 && l.rightRatio < 0.95) right.setDividerLocation(l.rightRatio);
+            if (l.rightRatio > 0.2 && l.rightRatio < 0.9) right.setDividerLocation(l.rightRatio);
             trafficPanel.setSplitRatio(l.trafficRatio);
         });
     }
