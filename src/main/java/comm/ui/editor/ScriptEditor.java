@@ -190,6 +190,12 @@ public final class ScriptEditor extends JPanel {
             // tema yuklenemezse varsayilan renkler kalir
         }
         area.setFont(font);
+        // komutlar / API yontemleri temada renksiz kaliyor: belirgin bir renk ver
+        org.fife.ui.rsyntaxtextarea.SyntaxScheme scheme = area.getSyntaxScheme();
+        org.fife.ui.rsyntaxtextarea.Style fn = scheme.getStyle(org.fife.ui.rsyntaxtextarea.Token.FUNCTION);
+        fn.foreground = dark ? new Color(0xC792EA) : new Color(0x7A3E9D);
+        fn.font = font.deriveFont(Font.BOLD);
+        area.setSyntaxScheme(scheme);
         Color bg = UIManager.getColor("TextArea.background");
         if (bg != null) {
             area.setBackground(bg);

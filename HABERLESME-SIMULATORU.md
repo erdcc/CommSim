@@ -17,7 +17,7 @@ java -jar target/commsim.jar projects/ornek-proje.json   # bir projeyle açar
 ```
 
 - `target/commsim.jar` tüm bağımlılıkları içerir: SNMP4J 2.8.18, Jackson 2.17, FlatLaf 3.5
-  (görünüm), JetBrains Mono (hex görünümü) ve Groovy 4.0 (Groovy senaryoları). Jar yaklaşık 12,5 MB'tır.
+  (görünüm), JetBrains Mono (hex görünümü) Groovy 4.0 (Groovy senaryoları) ve RSyntaxTextArea/AutoComplete (senaryo editörü). Jar yaklaşık 14 MB'tır.
 - Bytecode Java 8 içindir (`release=8`, sınıf sürümü 52). Derleme JDK 21 ile yapıldı ve
   testler JDK 21 üzerinde koşturuldu. **Gerçek bir Java 8 çalışma ortamında henüz denenmedi.**
 - macOS'ta `/usr/bin/java` bir yer tutucudur. `commsim.sh`, Homebrew'daki `openjdk@21`'i kullanır.
@@ -282,6 +282,26 @@ Biçim için [oids/ornek.oid](oids/ornek.oid) dosyasına bakın. Satır biçimi:
 İkisi de aynı işlemleri yapar, kontrolleri aynı şekilde sayar ve arayüzsüz çalıştırılabilir.
 Proje dosyası senaryonun dilini de saklar. **Durdur** düğmesi Groovy döngülerini de keser.
 
+### Editör
+
+Senaryo editörü iki dili de tanır:
+
+- **Renklendirme:** Komutlar, blok sözcükleri, metinler, `${değişken}`, sayılar ve `alan=değer`
+  ayrı renklerdedir. Satır numaraları, blok katlama, parantez eşleme vardır. Tırnak ve parantezler
+  kendiliğinden kapanır.
+- **Tamamlama:** Yazarken kendiliğinden açılır; ⌃Boşluk ya da ⌥Boşluk ile de açılır. Öneriler
+  imlecin yerine göre değişir:
+  - satır başında komutlar ve kalıplar (yer tutucular arasında Tab ile geçilir),
+  - bağlantı argümanında bağlantı adları (komuta uygun olanlar: `modbus` için master gibi),
+  - mesaj argümanında o bağlantının şemasındaki mesajlar (yanda alan listesiyle),
+  - mesajdan sonra alanlar, `alan=` / `alan: "` sonrasında enum değerleri,
+  - `${` sonrasında değişkenler, Groovy'de `m.` sonrasında `waitFor` sonucunun alanları.
+- **Canlı denetim:** Sözdizimi ve derleme hataları kırmızı, bilinmeyen bağlantı, mesaj ya da alan
+  adları sarı dalgalı çizgiyle işaretlenir. Sağ kenardaki şerit tüm sorunları gösterir. Alt
+  çubuktaki sayaca tıklamak ilk soruna götürür.
+- **Belgeler:** Bir komutun ya da mesaj adının üzerine gelince açıklaması görünür.
+- **Kısayollar:** ⌘F ara (⌘G sonraki), ⌘/ yorum satırı, ⌘⏎ senaryoyu çalıştır.
+
 ### Senaryo dili
 
 Satır tabanlıdır. Örnekler: [scenarios/ornek.scn](scenarios/ornek.scn) (tüm protokoller),
@@ -423,7 +443,7 @@ Proje JSON olarak saklanır. Örnek: [projects/ornek-proje.json](projects/ornek-
 
 ## Testler
 
-`mvn test` 73 test çalıştırır:
+`mvn test` 80 test çalıştırır:
 
 - hex işlemleri ve çerçeveleme,
 - gerçek soketlerle TCP ve UDP,
@@ -441,4 +461,5 @@ Proje JSON olarak saklanır. Örnek: [projects/ornek-proje.json](projects/ornek-
 - hazır mesajların kaydedilip uygulanması, soket seçeneklerinin proje dosyasında saklanması,
 - komut paletinin araması (Türkçe harf eşleme dahil),
 - senaryo dilinde while/break/function/include, özyineleme sınırı,
-- Groovy senaryoları: gerçek uçlarla gönderme/bekleme/kontrol, satır numaralı hatalar, durdurma.
+- Groovy senaryoları: gerçek uçlarla gönderme/bekleme/kontrol, satır numaralı hatalar, durdurma,
+- editör: imleç bağlamının çözümlenmesi, bilinmeyen ad uyarıları ve hata satırları.
