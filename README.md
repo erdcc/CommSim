@@ -9,7 +9,7 @@ Supported: **TCP**, **UDP** (unicast / broadcast / multicast), **Modbus TCP** (m
 
 Java 8 compatible Swing application (bytecode level 52, verified on Java 8). Built with Maven.
 
-<!-- screenshot -->
+![CommSim: connection list, message editor, and live traffic with Modbus frames](docs/img/commsim.jpg)
 
 ## Features
 
