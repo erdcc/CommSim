@@ -120,7 +120,7 @@ Modbus slave/master ve SNMP agent/manager (`oids/ornek.oid`). Örnek portlar 505
 
 ## Mesaj şeması (TCP / UDP)
 
-Söz dizimi açıklamalı olarak [schemas/ornek.def](schemas/ornek.def) dosyasındadır. Eski
+Söz dizimi açıklamalı olarak [schemas/ornek.def](../schemas/ornek.def) dosyasındadır. Eski
 `messages.def` dosyası değişmeden okunur ve aynı byte'ları üretir.
 
 - **Başlık ve son ek:** `header` ve `footer` blokları. `@id` alanı mesaj tipini seçer.
@@ -273,7 +273,7 @@ kapanışta hatırlanır. Proje kaydedilirken projeye de yazılır; proje açıl
 
 ## SNMP OID tablosu
 
-Biçim için [oids/ornek.oid](oids/ornek.oid) dosyasına bakın. Satır biçimi:
+Biçim için [oids/ornek.oid](../oids/ornek.oid) dosyasına bakın. Satır biçimi:
 
 ```
 <oid> <TİP> <ro|rw> <değer>
@@ -320,8 +320,8 @@ Senaryo editörü iki dili de tanır:
 
 ### Senaryo dili
 
-Satır tabanlıdır. Örnekler: [scenarios/ornek.scn](scenarios/ornek.scn) (tüm protokoller),
-[scenarios/akis.scn](scenarios/akis.scn) (döngü, fonksiyon, include).
+Satır tabanlıdır. Örnekler: [scenarios/ornek.scn](../scenarios/ornek.scn) (tüm protokoller),
+[scenarios/akis.scn](../scenarios/akis.scn) (döngü, fonksiyon, include).
 
 ```
 include ortak.scn                      # başka dosyadaki fonksiyonları ekler
@@ -371,7 +371,7 @@ snmp "Örnek SNMP manager" walk 1.3.6.1.2.1.1
 
 ### Groovy
 
-Örnek: [scenarios/ornek.groovy](scenarios/ornek.groovy). Groovy 4 kullanılır; Java 8 ile
+Örnek: [scenarios/ornek.groovy](../scenarios/ornek.groovy). Groovy 4 kullanılır; Java 8 ile
 çalışır ve jar'a dahildir.
 
 ```groovy
@@ -434,7 +434,7 @@ ya da kullanım hatası.
 
 ## Proje dosyası
 
-Proje JSON olarak saklanır. Örnek: [projects/ornek-proje.json](projects/ornek-proje.json).
+Proje JSON olarak saklanır. Örnek: [projects/ornek-proje.json](../projects/ornek-proje.json).
 İçinde şunlar bulunur:
 
 - bağlantı ayarları,
