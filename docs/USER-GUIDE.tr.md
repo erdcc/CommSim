@@ -170,7 +170,7 @@ yeni bir şemayı getirir.
 
 - Solda bloklar: başlık, son ek, struct'lar ve mesajlar. Ekleme, silme, kopyalama ve sıralama yapılabilir.
 - Ortada alan tablosu: ad, tip, rol, varsayılan ve enum değerleri. Tip ve rol hücreleri öneri
-  listelidir; `HEDEF[count]` ya da `crc16(from=2)` gibi serbest ifadeler de yazılabilir.
+  listelidir; `NESNE[count]` ya da `crc16(from=2)` gibi serbest ifadeler de yazılabilir.
 - Altta üretilen `.def` metni her değişiklikte doğrulanır, hatalı satır işaretlenir.
   Geçersiz şema kaydedilmez.
 - Kaydedince bu şemayı kullanan bağlantılar otomatik yeniden yüklenir.
@@ -385,10 +385,10 @@ for (hiz in (100..140).step(20)) {
     check m.speed == "$hiz", "KONUM hızı $hiz"
 }
 
-def hedefler = ["FRIEND", "HOSTILE"]
-def atama = [tracks: hedefler.size()]
-hedefler.eachWithIndex { k, i -> atama["tracks[$i].identity"] = k }
-send "Örnek TCP istemci", "HEDEF_LISTESI", atama
+def nesneler = ["ALPHA", "BRAVO"]
+def atama = [items: nesneler.size()]
+nesneler.eachWithIndex { k, i -> atama["items[$i].identity"] = k }
+send "Örnek TCP istemci", "NESNE_LISTESI", atama
 
 dsl '''
 repeat 3

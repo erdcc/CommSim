@@ -9,7 +9,7 @@ için yazıldı. Çıktı: `dist/harita-modulu-1.0.jar` (tek dosya, ~6,5 MB).
   Ayrı `lib/`, `data/` klasörü ya da internet gerekmez.
 - Paket: `harita`. Kullanacağınız sınıflar: `harita.MapPanel`, `harita.Node`.
 - Bytecode **Java 8** (sınıf sürümü 52). Swing gerekir.
-- Haritaya tıklayarak **PLATFORM** ve **RADAR** node'ları eklenir; değişiklikler dinleyiciyle dışarı verilir.
+- Haritaya tıklayarak **ASSET** ve **SENSOR** node'ları eklenir; değişiklikler dinleyiciyle dışarı verilir.
 - `java -jar harita-modulu-1.0.jar` ile bağımsız bir demo penceresi açılır (jar'ın doğru çalıştığını görmek için).
 
 ## Projeye ekleme
@@ -63,8 +63,8 @@ public class Kullanim {
 }
 ```
 
-Çalışınca araç çubuğunda **Platform ekle** / **Radar ekle**'yi açıp haritaya tıklayın; konsola
-`ADDED PLATFORM PLT-1 id=1` gibi satırlar düşer. Haritayı kendi arayüzünüzün istediği yere
+Çalışınca araç çubuğunda **Asset ekle** / **Sensor ekle**'yi açıp haritaya tıklayın; konsola
+`ADDED ASSET AST-1 id=1` gibi satırlar düşer. Haritayı kendi arayüzünüzün istediği yere
 (`JSplitPane`, `BorderLayout`, sekme vb.) normal bir `JPanel` gibi koyabilirsiniz.
 
 > **Not:** `Node` adı yaygındır (`org.w3c.dom.Node`, JavaFX `Node`). Bu sınıfları da kullanıyorsanız
@@ -80,7 +80,7 @@ public class Kullanim {
 | `setSelectionListener(Consumer<Node>)` | Seçili node değişince, ayrıca seçili node taşınınca/düzenlenince çağrılır. Seçim temizlenince (`null`) **çağrılmaz**. |
 | `List<Node> nodes()` | Haritadaki tüm node'ların **kopya listesi** (liste kopya; `Node` nesneleri aynı). |
 | `Node getSelected()` | Seçili node veya `null`. |
-| `void refresh()` | `Node` alanını (ör. `gate`) kodla değiştirdiyseniz çizimi ve seçili node başlığını yeniler. |
+| `void refresh()` | `Node` alanını (ör. `uplink`) kodla değiştirdiyseniz çizimi ve seçili node başlığını yeniler. |
 
 Olay sırası bir ekleme için: önce `SelectionListener` (yeni node seçilir), sonra `NodeListener` `ADDED`.
 Sürükleme sırasında `MOVED` her fare hareketinde gelir; ağır işi doğrudan yapmayın, birleştirin
@@ -92,19 +92,19 @@ Sürükleme sırasında `MOVED` her fare hareketinde gelir; ağır işi doğruda
 ## `Node` modeli
 
 ```java
-Node.Type    type;       // PLATFORM veya RADAR (final)
+Node.Type    type;       // ASSET veya SENSOR (final)
 int          nodeId;     // haritada otomatik: 1'den artar
-String       name;       // "PLT-<id>" / "RDR-<id>"
-String       identity;   // PENDING | FRIEND | HOSTILE | NEUTRAL | UNKNOWN   (renk belirler)
+String       name;       // "AST-<id>" / "SNS-<id>"
+String       identity;   // PENDING | ALPHA | BRAVO | CHARLIE | UNKNOWN   (renk belirler)
 double       lat, lon;   // derece; lat en fazla ±85, lon ±180 ile sınırlanır
-double       altitude, speed, heading;   // heading: kuzeyden saat yönünde derece (platformda çizilir)
-Node.GateState gate;     // OFF | CONNECTING | CONNECTED | FAILED — dış bir TCP gate durumunu göstermek için
+double       altitude, speed, heading;   // heading: kuzeyden saat yönünde derece (asset üzerinde çizilir)
+Node.UplinkState uplink;     // OFF | CONNECTING | CONNECTED | FAILED — dış bir TCP uplink durumunu göstermek için
 Map<String,Object> attributes();   // anahtarlar: nodeId, nodeType, name, identity, lat, lon,
                                    //            altitude, speed, heading   (Integer / String / Double)
 ```
 
-`gate` alanı kodla değiştirilip `map.refresh()` çağrılırsa platformun etrafında durum halkası çizilir
-(turuncu = bağlanıyor, yeşil = bağlı, kırmızı = hata) ve seçili node başlığında "gate: ..." görünür.
+`uplink` alanı kodla değiştirilip `map.refresh()` çağrılırsa asset'in etrafında durum halkası çizilir
+(turuncu = bağlanıyor, yeşil = bağlı, kırmızı = hata) ve seçili node başlığında "uplink: ..." görünür.
 Kullanmıyorsanız hiçbir etkisi yoktur (`OFF` varsayılan).
 
 ## Harita davranışı
@@ -112,9 +112,9 @@ Kullanmıyorsanız hiçbir etkisi yoktur (`OFF` varsayılan).
 - Başlangıç: merkez (39.9334, 32.8597), ölçek 1:12.000.000; projeksiyon Mercator.
 - Fare: sol tuşla boşluğu sürükle = kaydır; node üstünden sürükle = node'u taşı; tekerlek / dokunmatik
   kaydırma = imlecin altındaki noktayı sabit tutarak yakınlaştır/uzaklaştır. Ölçek 1:1.000 ile 1:150.000.000.
-- Araç çubuğu: **Platform ekle** / **Radar ekle** (biri açıkken haritaya tıklamak node ekler; ikisi aynı
+- Araç çubuğu: **Asset ekle** / **Sensor ekle** (biri açıkken haritaya tıklamak node ekler; ikisi aynı
   anda açık kalmaz), **Seçiliyi sil**. Alt panel: seçili node'un alanları ve **Uygula** düğmesi.
-- Platform = daire (yönü gösteren çizgiyle), Radar = baklava/elmas.
+- Asset = daire (yönü gösteren çizgiyle), Sensor = baklava/elmas.
 
 ## Gömülü veri nasıl çalışır
 
@@ -182,7 +182,7 @@ Denendi:
 - Aynı anda tek seçim; çoklu seçim yok.
 - Uydu görüntüsü düşük çözünürlüklü (piksel başına ~7 km): ülke/bölge ölçeğinde iyi, şehir ölçeğinde
   bulanık. Yüksek çözünürlük için karo (tile) mimarisi gerekir; yapılmadı.
-- Radar için menzil/tarama alanı yok; `speed`/`heading` radarda çizime etki etmez.
+- Sensor için menzil/tarama alanı yok; `speed`/`heading` sensor üzerinde çizime etki etmez.
 - Mercator dışında projeksiyon denenmedi.
 
 ## Lisans ve kaynaklar

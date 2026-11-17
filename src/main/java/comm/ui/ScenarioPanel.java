@@ -46,7 +46,7 @@ final class ScenarioPanel extends JPanel {
             "  log <metin>",
             "  send <bağlantı> <MESAJ> [alan=değer ...]   Değerleri atar ve şema mesajını gönderir",
             "  set <bağlantı> <MESAJ> alan=değer ...      Yalnızca gönderilecek değeri değiştirir",
-            "        Liste/başlık yolları: tracks[1].identity=HOSTILE  başlık.seq=5",
+            "        Liste/başlık yolları: items[1].identity=BRAVO  başlık.seq=5",
             "  hex <bağlantı> <hex ...>               Ham byte gönderir",
             "  text <bağlantı> <metin>                Metin gönderir (\\r \\n \\xHH kaçışları)",
             "  waitfor <bağlantı> <MESAJ> [ms]         Mesaj gelene dek bekler (varsayılan 5000 ms)",
@@ -120,10 +120,10 @@ final class ScenarioPanel extends JPanel {
             "    check m.speed == \"$hiz\", \"hız $hiz alındı\"",
             "}",
             "",
-            "def hedefler = [[identity: \"HOSTILE\"], [identity: \"FRIEND\"]]",
-            "def atama = [tracks: hedefler.size()]",
-            "hedefler.eachWithIndex { h, i -> atama[\"tracks[$i].identity\"] = h.identity }",
-            "send istemci, \"HEDEF_LISTESI\", atama",
+            "def nesneler = [[identity: \"BRAVO\"], [identity: \"ALPHA\"]]",
+            "def atama = [items: nesneler.size()]",
+            "nesneler.eachWithIndex { h, i -> atama[\"items[$i].identity\"] = h.identity }",
+            "send istemci, \"NESNE_LISTESI\", atama",
             "log \"Bitti\"",
             "");
 
@@ -138,7 +138,7 @@ final class ScenarioPanel extends JPanel {
             "  expect \"Örnek TCP sunucu\" KONUM speed=120",
             "  wait 500",
             "end",
-            "send \"Örnek TCP istemci\" HEDEF_LISTESI tracks=2 tracks[1].identity=HOSTILE",
+            "send \"Örnek TCP istemci\" NESNE_LISTESI items=2 items[1].identity=BRAVO",
             "log Bitti",
             "");
 

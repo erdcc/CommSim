@@ -86,7 +86,7 @@ class ScriptAssistTest {
                 "start \"Örnek TCP sunucu\"",
                 "start yok",
                 "send \"Örnek TCP istemci\" KONUMX speed=1",
-                "send \"Örnek TCP istemci\" HEDEF_LISTESI tracks=1 tracks[0].identity=HOSTILE hizz=3",
+                "send \"Örnek TCP istemci\" NESNE_LISTESI items=1 items[0].identity=BRAVO hizz=3",
                 "start ${degisken}");
         List<ScriptCheck.Problem> w = ScriptEditor.dslWarnings(text, targets());
         assertEquals(3, w.size(), w.toString());
@@ -124,11 +124,11 @@ class ScriptAssistTest {
 
     @Test void fieldsIncludeHeaderListAndEnums() throws Exception {
         Schema s = SchemaParser.parse(Paths.get("schemas/ornek.def"));
-        List<Target.Field> f = Target.fields(s, s.byName("HEDEF_LISTESI"));
+        List<Target.Field> f = Target.fields(s, s.byName("NESNE_LISTESI"));
         assertTrue(f.stream().anyMatch(x -> x.path.equals("başlık.seq")));
-        assertTrue(f.stream().anyMatch(x -> x.path.equals("tracks")));
-        Target.Field id = f.stream().filter(x -> x.path.equals("tracks[0].identity")).findFirst().orElse(null);
-        assertTrue(id != null && id.enums.contains("HOSTILE"));
+        assertTrue(f.stream().anyMatch(x -> x.path.equals("items")));
+        Target.Field id = f.stream().filter(x -> x.path.equals("items[0].identity")).findFirst().orElse(null);
+        assertTrue(id != null && id.enums.contains("BRAVO"));
         assertNull(Target.message(s, "YOK"));
     }
 }

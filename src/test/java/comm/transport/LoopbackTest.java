@@ -165,7 +165,7 @@ class LoopbackTest {
 
         MessageDef m = schema.byName("KOMUT");
         Map<String, Object> body = Values.defaults(m.body);
-        body.put("command", "ENGAGE");
+        body.put("command", "ACTIVATE");
         body.put("lat", 41.0);
         client.send(Codec.encode(schema, m, null, body), null);
 
@@ -173,7 +173,7 @@ class LoopbackTest {
         assertNotNull(got.decoded);
         assertTrue(got.decoded.ok(), got.decoded.error);
         assertEquals("KOMUT", got.decoded.message.name);
-        assertEquals("ENGAGE", got.decoded.body.get("command"));
+        assertEquals("ACTIVATE", got.decoded.body.get("command"));
         assertEquals(41.0, got.decoded.body.get("lat"));
     }
 }

@@ -51,21 +51,21 @@ class CodecTest {
         Schema s = SchemaParser.parse(Paths.get("messages.def"));
         MessageDef m = s.byName("YAYIN_LISTESI");
         Map<String, Object> body = Values.defaults(m.body);
-        List<Object> radars = new ArrayList<>();
-        Map<String, Object> r = Values.defaults(s.structs.get("RADAR_KAYDI"));
+        List<Object> sensors = new ArrayList<>();
+        Map<String, Object> r = Values.defaults(s.structs.get("SENSOR_KAYDI"));
         r.put("nodeId", 7L);
         r.put("name", "R1");
-        r.put("identity", "HOSTILE");
+        r.put("identity", "BRAVO");
         r.put("lat", 39.5);
-        radars.add(r);
-        body.put("radars", radars);
+        sensors.add(r);
+        body.put("sensors", sensors);
         byte[] b = Codec.encode(s, m, null, body);
         Decoded d = Codec.decode(s, b);
         assertTrue(d.ok(), d.error);
         @SuppressWarnings("unchecked")
-        Map<String, Object> got = (Map<String, Object>) ((List<?>) d.body.get("radars")).get(0);
+        Map<String, Object> got = (Map<String, Object>) ((List<?>) d.body.get("sensors")).get(0);
         assertEquals(7L, got.get("nodeId"));
-        assertEquals("HOSTILE", got.get("identity"));
+        assertEquals("BRAVO", got.get("identity"));
         assertEquals(39.5, got.get("lat"));
         // 2 id + 4 nodeId + 1 enum + 2 adet + (4 + 2+2 + 1 + 8*3)
         assertEquals(2 + 4 + 1 + 2 + 33, b.length);

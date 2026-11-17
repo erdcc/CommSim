@@ -8,7 +8,7 @@ okuyun; geri kalanı başvuru bölümüdür.
 
 - `MapPanel`, bir `JPanel`'dir. İçinde OpenMap `MapBean` (uydu görüntüsü + ülke sınırları +
   enlem/boylam ızgarası) ve üstünde kullanıcının tıklayarak koyduğu **node**'lar vardır.
-- Node iki türdür: **PLATFORM** (daire) ve **RADAR** (baklava/elmas). İkisi de tek bir
+- Node iki türdür: **ASSET** (daire) ve **SENSOR** (baklava/elmas). İkisi de tek bir
   `Node` sınıfıdır, farkı `type` alanıdır.
 - Tamamen **çevrimdışı** çalışır. Çalışma sırasında internet gerekmez.
 - Haritadaki değişiklikler **olay (listener)** ile dışarı verilir; ayrıca `nodes()` ile
@@ -36,7 +36,7 @@ node ekleme ve dinleyici olayları doğrulandı).
 **Taşınmaması gerekenler** (bu projenin kendi simülatör mantığı; yalnızca referans):
 `SimulatorFrame.java`, `Main.java`, `TcpTransport.java`, `Codec.java`,
 `DefinitionLoader.java`, `TestServer.java`, `messages.def`, `run.sh`, `server.sh`.
-Platform TCP gate'leri ve YAYIN_LISTESI mantığı `SimulatorFrame` içindedir, haritada
+Asset TCP uplink'leri ve YAYIN_LISTESI mantığı `SimulatorFrame` içindedir, haritada
 değildir. Hedef simülatörün kendi iletişim katmanı varsa onu kullanın.
 
 Toplam: 3 Java dosyası (~600 satır) + 6,3 MB jar/veri.
@@ -67,8 +67,8 @@ f.setSize(900, 700);
 f.setVisible(true);
 ```
 
-Kullanım: araç çubuğunda **Platform ekle** veya **Radar ekle**'yi açıp haritaya tıklayın.
-Çıktıda `SECILDI {...}` ve `ADDED PLATFORM PLT-1 [1]` görünür.
+Kullanım: araç çubuğunda **Asset ekle** veya **Sensor ekle**'yi açıp haritaya tıklayın.
+Çıktıda `SECILDI {...}` ve `ADDED ASSET AST-1 [1]` görünür.
 
 ## Public API (`MapPanel`)
 
@@ -79,7 +79,7 @@ Kullanım: araç çubuğunda **Platform ekle** veya **Radar ekle**'yi açıp har
 | `setSelectionListener(Consumer<Node>)` | Seçili node değişince, ayrıca seçili node taşınınca/düzenlenince çağrılır. Seçim temizlenince (`null`) **çağrılmaz**. |
 | `List<Node> nodes()` | Haritadaki tüm node'ların **kopyası** (liste kopya, `Node` nesneleri aynı). |
 | `Node getSelected()` | Seçili node veya `null`. |
-| `void refresh()` | `Node` alanını (ör. `gate`) kodla değiştirdiyseniz çizimi ve seçili node başlığını yeniler. |
+| `void refresh()` | `Node` alanını (ör. `uplink`) kodla değiştirdiyseniz çizimi ve seçili node başlığını yeniler. |
 | `onMessage(Message, boolean incoming)` | **Boş kanca** (`MessageListener`). Bu projede çağıran `Main`/`SimulatorFrame`'dir; haritada işlenmiş mantık yok. |
 
 Olay sırası bir ekleme için: önce `SelectionListener` (yeni node seçilir), sonra
@@ -92,13 +92,13 @@ doğrudan yapmayın, birleştirin (bu projede 0,4 sn'lik `javax.swing.Timer`).
 ## `Node` modeli
 
 ```java
-Node.Type    type;       // PLATFORM veya RADAR (final)
+Node.Type    type;       // ASSET veya SENSOR (final)
 int          nodeId;     // haritada otomatik: 1'den artar (MapPanel.nextId)
-String       name;       // "PLT-<id>" / "RDR-<id>"
-String       identity;   // PENDING | FRIEND | HOSTILE | NEUTRAL | UNKNOWN   (renk belirler)
+String       name;       // "AST-<id>" / "SNS-<id>"
+String       identity;   // PENDING | ALPHA | BRAVO | CHARLIE | UNKNOWN   (renk belirler)
 double       lat, lon;   // derece; lat en fazla ±85, lon ±180 ile sınırlanır
-double       altitude, speed, heading;   // heading: kuzeyden saat yönünde derece (platformda çizilir)
-Node.GateState gate;     // OFF | CONNECTING | CONNECTED | FAILED — bu projenin TCP gate'i için
+double       altitude, speed, heading;   // heading: kuzeyden saat yönünde derece (asset üzerinde çizilir)
+Node.UplinkState uplink;     // OFF | CONNECTING | CONNECTED | FAILED — bu projenin TCP uplink'i için
 Map<String,Object> attributes();   // anahtarlar: nodeId, nodeType, name, identity, lat, lon,
                                    //            altitude, speed, heading
 ```
@@ -106,8 +106,8 @@ Map<String,Object> attributes();   // anahtarlar: nodeId, nodeType, name, identi
 `attributes()`, alan adı eşleştirmeyle formları doldurmak için kullanılır (bu projede
 `messages.def` alan adı ya da `@bind` ile eşleşir). Değer tipleri: `Integer`, `String`, `Double`.
 
-`gate` alanı ve haritadaki **durum halkası** (turuncu/yeşil/kırmızı) ile seçili node başlığındaki
-"gate: ..." yazısı bu projeye özgüdür. Hedef simülatörde gerekmiyorsa kaldırılabilir
+`uplink` alanı ve haritadaki **durum halkası** (turuncu/yeşil/kırmızı) ile seçili node başlığındaki
+"uplink: ..." yazısı bu projeye özgüdür. Hedef simülatörde gerekmiyorsa kaldırılabilir
 (`MapPanel` içinde `paint` ve `refreshProps`).
 
 ## Harita davranışı
@@ -115,7 +115,7 @@ Map<String,Object> attributes();   // anahtarlar: nodeId, nodeType, name, identi
 - Başlangıç: merkez (39.9334, 32.8597), ölçek 1:12.000.000; projeksiyon **Mercator** (OpenMap varsayılanı).
 - Fare: sol tuşla boşluğu sürükle = kaydır; node üstünden sürükle = node'u taşı; tekerlek =
   imlecin altındaki noktayı sabit tutarak yakınlaştır/uzaklaştır (adım 1,25x). Ölçek sınırı 1:1.000 ile 1:150.000.000.
-- Araç çubuğu: **Platform ekle** / **Radar ekle** (biri açıkken haritaya tıklamak node ekler;
+- Araç çubuğu: **Asset ekle** / **Sensor ekle** (biri açıkken haritaya tıklamak node ekler;
   ikisi aynı anda açık kalmaz), **Seçiliyi sil**.
 - Alt panel: seçili node'un alanları (`nodeId`, `name`, `identity`, `altitude`, `speed`,
   `heading`, `lat`, `lon`) ve **Uygula** düğmesi.
@@ -163,7 +163,7 @@ ile yapılır; `inverse` sonucunda `Point2D.getX()` boylam, `getY()` enlemdir.
 - `lat` ±85, `lon` ±180 ile sınırlanır; tarih değiştirme çizgisini aşan şekiller işlenmez.
 - Uydu görüntüsü düşük çözünürlüklüdür (piksel başına ~7 km); ülke/bölge ölçeğinde iyi,
   şehir ölçeğinde bulanıktır. Yüksek çözünürlük için karo (tile) mimarisi gerekir; yapılmadı.
-- Radar için menzil/tarama alanı gibi özel alan **yoktur**; `speed`/`heading` radarda çizime etki etmez.
+- Sensor için menzil/tarama alanı gibi özel alan **yoktur**; `speed`/`heading` sensor üzerinde çizime etki etmez.
 - macOS'ta 5000 numaralı TCP portunu AirPlay Alıcısı tutar; test sunucusu için 5000 kullanmayın
   (bu projede varsayılan 5555).
 - OpenMap lisansı (BBN): `https://raw.githubusercontent.com/openmap-java/openmap/v5.1.15/LICENSE`.
@@ -175,8 +175,8 @@ ile yapılır; `inverse` sonucunda `Point2D.getX()` boylam, `getY()` enlemdir.
 
 Taşınmayacak ama nasıl çalıştığını görmek isteyen ajan için:
 
-- `SimulatorFrame`: haritadaki her PLATFORM için bir TCP istemci gate'i açar (`Gate`); radarlar
-  tüm platformlarca tespit edilmiş sayılır ve değişiklikte `YAYIN_LISTESI` mesajıyla gönderilir.
+- `SimulatorFrame`: haritadaki her ASSET için bir TCP istemci uplink'i açar (`Uplink`); sensor'lar
+  tüm asset'lerce tespit edilmiş sayılır ve değişiklikte `YAYIN_LISTESI` mesajıyla gönderilir.
   Haritayı nasıl dinlediğini görmek için `onNodeChanged`, `fillFromNode`, `listValue`, `valueFor`.
 - `Codec` + `DefinitionLoader` + `messages.def`: metin tabanlı mesaj tanımı ve ikili kodlama.
 - `TcpTransport`: bağımsız, yeniden kullanılabilir TCP istemci/sunucu (başlık: int32 uzunluk + yük).

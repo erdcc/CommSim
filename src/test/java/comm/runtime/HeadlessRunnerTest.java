@@ -37,7 +37,7 @@ class HeadlessRunnerTest {
         comm.core.ResponseRule r = new comm.core.ResponseRule();
         r.when = "KOMUT";
         r.reply = "HEARTBEAT";
-        r.assignments = "uptime=$rx.platformId * 2";
+        r.assignments = "uptime=$rx.assetId * 2";
         s.rules.add(r);
         EndpointConfig c = s.copy();
         c.name = "İstemci";
@@ -48,7 +48,7 @@ class HeadlessRunnerTest {
         es.config = s;
         ProjectFile.EndpointEntry ec = new ProjectFile.EndpointEntry();
         ec.config = c;
-        ec.txMessages.put("KOMUT", java.util.Collections.singletonMap("platformId", "21"));
+        ec.txMessages.put("KOMUT", java.util.Collections.singletonMap("assetId", "21"));
         p.endpoints.add(es);
         p.endpoints.add(ec);
         p.scenario = scenario;
@@ -70,7 +70,7 @@ class HeadlessRunnerTest {
                 "waitfor İstemci HEARTBEAT 2000",
                 "var u = last(İstemci, HEARTBEAT, uptime)",
                 "assert ${u} == 42",
-                "expect Sunucu KOMUT platformId=21");
+                "expect Sunucu KOMUT assetId=21");
         Path p = project(dir, ok);
         String[] out = new String[1];
         assertEquals(HeadlessRunner.OK, run(out, "--run", p.toString(), "--start-all", "--timeout", "20"), out[0]);

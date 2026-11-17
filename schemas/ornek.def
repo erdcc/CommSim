@@ -70,19 +70,19 @@ header
 footer
   uint16 crc     @crc16ccitt
 
-struct HEDEF
-  uint32  trackId
+struct NESNE
+  uint32  itemId
   float64 lat
   float64 lon
   float32 alt
-  enum    identity PENDING|FRIEND|HOSTILE|NEUTRAL|UNKNOWN = UNKNOWN
+  enum    identity PENDING|ALPHA|BRAVO|CHARLIE|UNKNOWN = UNKNOWN
 
 message 1 HEARTBEAT
   uint32     uptime
   enum:uint8 status OK|DEGRADED|FAIL = OK
 
 message 2 KONUM
-  uint32  platformId = 100
+  uint32  assetId = 100
   float64 lat        = 39.9334
   float64 lon        = 32.8597
   float32 altitude
@@ -94,15 +94,15 @@ message 3 METIN
   string[uint8] text   = Merhaba
 
 message 4 KOMUT
-  uint32           platformId = 100
-  enum:uint16      command    GOTO=1|HOLD=2|RTB=3|ENGAGE=10 = HOLD
+  uint32           assetId = 100
+  enum:uint16      command    GOTO=1|HOLD=2|RETURN=3|ACTIVATE=10 = HOLD
   float64          lat
   float64          lon
   bool             urgent
 
-message 5 HEDEF_LISTESI
+message 5 NESNE_LISTESI
   uint8          count
-  HEDEF[count]   tracks
+  NESNE[count]   items
 
 message 6 REGISTERLAR
   uint16      start

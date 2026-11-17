@@ -716,7 +716,7 @@ public final class ScenarioRunner {
 
     private static Map<String, String> texts(Map<?, ?> values) {
         Map<String, String> m = new java.util.LinkedHashMap<>();
-        // Groovy anahtarlari GString olabilir ("tracks[$i].identity"); metne cevrilir
+        // Groovy anahtarlari GString olabilir ("items[$i].identity"); metne cevrilir
         if (values != null) for (Map.Entry<?, ?> e : values.entrySet()) m.put(String.valueOf(e.getKey()), String.valueOf(e.getValue()));
         return m;
     }

@@ -30,7 +30,7 @@ import java.util.function.Consumer;
 
 /**
  * OpenMap tabanli harita paneli (internet gerekmez).
- * Haritaya tiklayarak platform/radar node'u eklenir; degisiklikler NodeListener ile disari verilir.
+ * Haritaya tiklayarak asset/sensor node'u eklenir; degisiklikler NodeListener ile disari verilir.
  * <p>
  * {@code new MapPanel()} pakete gomulu harita verisini kullanir, ek dosya gerekmez.
  * {@code new MapPanel(dir)} ise verileri verilen klasorden okur.
@@ -56,8 +56,8 @@ public class MapPanel extends JPanel {
 
     private NodeListener nodeListener = (n, c) -> { };
 
-    private final JToggleButton addPlatform = new JToggleButton("Platform ekle");
-    private final JToggleButton addRadar = new JToggleButton("Radar ekle");
+    private final JToggleButton addAsset = new JToggleButton("Asset ekle");
+    private final JToggleButton addSensor = new JToggleButton("Sensor ekle");
     private final JButton delete = new JButton("Seçiliyi sil");
     private final JLabel cursorInfo = new JLabel("Sürükle: kaydır / objeyi taşı · Tekerlek: yakınlaştır");
 
@@ -103,7 +103,7 @@ public class MapPanel extends JPanel {
     /** Haritadaki tum node'larin anlik kopyasi. */
     public List<Node> nodes() { return new ArrayList<>(objects); }
 
-    /** Node durumu (ornegin gate) degisti: cizimi ve secili node basligini yeniler. */
+    /** Node durumu (ornegin uplink) degisti: cizimi ve secili node basligini yeniler. */
     public void refresh() {
         refreshProps();
         objectLayer.repaint();
@@ -151,11 +151,11 @@ public class MapPanel extends JPanel {
 
     private JComponent buildToolbar() {
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
-        bar.add(addPlatform);
-        bar.add(addRadar);
+        bar.add(addAsset);
+        bar.add(addSensor);
         bar.add(delete);
-        addPlatform.addActionListener(e -> { if (addPlatform.isSelected()) addRadar.setSelected(false); });
-        addRadar.addActionListener(e -> { if (addRadar.isSelected()) addPlatform.setSelected(false); });
+        addAsset.addActionListener(e -> { if (addAsset.isSelected()) addSensor.setSelected(false); });
+        addSensor.addActionListener(e -> { if (addSensor.isSelected()) addAsset.setSelected(false); });
         delete.addActionListener(e -> deleteSelected());
         return bar;
     }
@@ -272,14 +272,14 @@ public class MapPanel extends JPanel {
 
     /** Eklenecek tur; ikisi de kapaliysa null. */
     private Node.Type addType() {
-        return addPlatform.isSelected() ? Node.Type.PLATFORM : addRadar.isSelected() ? Node.Type.RADAR : null;
+        return addAsset.isSelected() ? Node.Type.ASSET : addSensor.isSelected() ? Node.Type.SENSOR : null;
     }
 
     private void addObjectAt(int x, int y) {
         Node.Type type = addType();
         Point2D g = map.getProjection().inverse(x, y);
         int id = nextId++;
-        String prefix = type == Node.Type.RADAR ? "RDR" : "PLT";
+        String prefix = type == Node.Type.SENSOR ? "SNS" : "AST";
         Node o = new Node(type, id, prefix + "-" + id, clampLat(g.getY()), clampLon(g.getX()));
         objects.add(o);
         select(o);
@@ -317,7 +317,7 @@ public class MapPanel extends JPanel {
             c.setEnabled(on);
         delete.setEnabled(on);
         propsBorder.setTitle(on ? "Seçili node: " + selected.type
-                + (selected.type == Node.Type.PLATFORM ? " · gate: " + gateText(selected.gate) : "") : "Seçili node");
+                + (selected.type == Node.Type.ASSET ? " · uplink: " + uplinkText(selected.uplink) : "") : "Seçili node");
         props.repaint();
         if (!on) {
             for (JTextField f : new JTextField[] {fId, fName, fAlt, fSpeed, fHeading, fLat, fLon}) f.setText("");
@@ -357,7 +357,7 @@ public class MapPanel extends JPanel {
         }
     }
 
-    private static String gateText(Node.GateState s) {
+    private static String uplinkText(Node.UplinkState s) {
         switch (s) {
             case OFF: return "kapalı";
             case CONNECTING: return "bağlanıyor";
@@ -395,7 +395,7 @@ public class MapPanel extends JPanel {
                 Point2D pt = p.forward(o.lat, o.lon);
                 int x = (int) Math.round(pt.getX()), y = (int) Math.round(pt.getY());
                 g.setStroke(new BasicStroke(1f));
-                if (o.type == Node.Type.RADAR) {
+                if (o.type == Node.Type.SENSOR) {
                     Polygon d = new Polygon(new int[] {x, x + 9, x, x - 9}, new int[] {y - 9, y, y + 9, y}, 4);
                     g.setColor(color(o.identity));
                     g.fillPolygon(d);
@@ -411,9 +411,9 @@ public class MapPanel extends JPanel {
                     g.setColor(Color.BLACK);
                     g.setStroke(new BasicStroke(o == selected ? 3f : 1f));
                     g.drawOval(x - 7, y - 7, 14, 14);
-                    if (o.gate != Node.GateState.OFF) {   // gate durum halkasi
-                        g.setColor(o.gate == Node.GateState.CONNECTED ? new Color(0x2ECC40)
-                                : o.gate == Node.GateState.CONNECTING ? new Color(0xFF9500)
+                    if (o.uplink != Node.UplinkState.OFF) {   // uplink durum halkasi
+                        g.setColor(o.uplink == Node.UplinkState.CONNECTED ? new Color(0x2ECC40)
+                                : o.uplink == Node.UplinkState.CONNECTING ? new Color(0xFF9500)
                                 : new Color(0xFF3B30));
                         g.setStroke(new BasicStroke(2.5f));
                         g.drawOval(x - 12, y - 12, 24, 24);
@@ -449,9 +449,9 @@ public class MapPanel extends JPanel {
 
     private static Color color(String identity) {
         switch (identity) {
-            case "FRIEND": return new Color(0x4A90E2);
-            case "HOSTILE": return new Color(0xE24A4A);
-            case "NEUTRAL": return new Color(0x5CB85C);
+            case "ALPHA": return new Color(0x4A90E2);
+            case "BRAVO": return new Color(0xE24A4A);
+            case "CHARLIE": return new Color(0x5CB85C);
             case "PENDING": return new Color(0xAAAAAA);
             default: return new Color(0xF0C040);
         }

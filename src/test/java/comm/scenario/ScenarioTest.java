@@ -161,9 +161,9 @@ class ScenarioTest {
                 "end",
                 "expect sunucu KONUM speed=120 heading=-45 lat=39.9334",
                 "expect sunucu KONUM speed=99",
-                "send \"istemci 1\" HEDEF_LISTESI tracks=2 tracks[1].identity=HOSTILE",
-                "waitfor sunucu HEDEF_LISTESI",
-                "expect sunucu HEDEF_LISTESI count=2 tracks[1].identity=HOSTILE",
+                "send \"istemci 1\" NESNE_LISTESI items=2 items[1].identity=BRAVO",
+                "waitfor sunucu NESNE_LISTESI",
+                "expect sunucu NESNE_LISTESI count=2 items[1].identity=BRAVO",
                 "mbset slave hr 10 7,8,9",
                 "modbus master read 3 10 3",
                 "waitfor master FC03",
@@ -178,7 +178,7 @@ class ScenarioTest {
         assertTrue(all.contains("6 kontrol, 1 başarısız"), all);
         assertTrue(all.contains("✗ sunucu KONUM.speed = 99  (alınan: 120)"), all);
         assertEquals(9, master.tables().get(ModbusTables.Table.HOLDING, 12));
-        assertEquals(3, server.stats().rxFrames(), all); // 2 KONUM + 1 HEDEF_LISTESI
+        assertEquals(3, server.stats().rxFrames(), all); // 2 KONUM + 1 NESNE_LISTESI
     }
 
     @Test void failingCommandStopsScenario() throws Exception {
@@ -367,11 +367,11 @@ class ScenarioTest {
                 "    check m.speed == \"$hiz\", \"hız $hiz\"",
                 "}",
                 "expect 'sunucu', 'KONUM', speed: 120, heading: -45",
-                "def atama = [tracks: 2]",
-                "['FRIEND', 'HOSTILE'].eachWithIndex { v, i -> atama[\"tracks[$i].identity\"] = v }",
-                "send istemci, 'HEDEF_LISTESI', atama",
-                "waitFor 'sunucu', 'HEDEF_LISTESI'",
-                "check last('sunucu', 'HEDEF_LISTESI')['tracks[1].identity'] == 'HOSTILE', 'liste'",
+                "def atama = [items: 2]",
+                "['ALPHA', 'BRAVO'].eachWithIndex { v, i -> atama[\"items[$i].identity\"] = v }",
+                "send istemci, 'NESNE_LISTESI', atama",
+                "waitFor 'sunucu', 'NESNE_LISTESI'",
+                "check last('sunucu', 'NESNE_LISTESI')['items[1].identity'] == 'BRAVO', 'liste'",
                 "vars.hiz = '77'",
                 "dsl '''send \"Örnek istemci\" KONUM speed=${hiz}",
                 "waitfor sunucu KONUM 2000",

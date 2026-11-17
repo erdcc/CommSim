@@ -8,16 +8,16 @@ import java.util.Map;
 
 /**
  * Haritadaki tek node nesnesi. Tum mesajlar bu nesnenin ozelliklerinden turetilir.
- * Haritaya iki tur eklenir: PLATFORM ve RADAR.
+ * Haritaya iki tur eklenir: ASSET ve SENSOR.
  */
 public final class Node {
-    public enum Type { PLATFORM, RADAR }
+    public enum Type { ASSET, SENSOR }
 
-    /** Platformun TCP gate (istemci baglantisi) durumu. Radarlar icin hep OFF. */
-    public enum GateState { OFF, CONNECTING, CONNECTED, FAILED }
+    /** Assetun TCP uplink (istemci baglantisi) durumu. Sensorlar icin hep OFF. */
+    public enum UplinkState { OFF, CONNECTING, CONNECTED, FAILED }
 
     public static final List<String> IDENTITIES = Collections.unmodifiableList(
-            Arrays.asList("PENDING", "FRIEND", "HOSTILE", "NEUTRAL", "UNKNOWN"));
+            Arrays.asList("PENDING", "ALPHA", "BRAVO", "CHARLIE", "UNKNOWN"));
 
     public final Type type;
     public int nodeId;
@@ -28,7 +28,7 @@ public final class Node {
     public double altitude;
     public double speed;
     public double heading;
-    public GateState gate = GateState.OFF;
+    public UplinkState uplink = UplinkState.OFF;
 
     public Node(Type type, int nodeId, String name, double lat, double lon) {
         this.type = type;

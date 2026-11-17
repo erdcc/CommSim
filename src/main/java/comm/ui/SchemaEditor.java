@@ -196,7 +196,7 @@ final class SchemaEditor extends JDialog {
         fieldBtns.add(delField);
         fieldBtns.add(upField);
         fieldBtns.add(downField);
-        JLabel hint = new JLabel("Tip ve rol hücrelerine listede olmayan ifadeler de yazılabilir (örn. HEDEF[count], crc16(from=2)).");
+        JLabel hint = new JLabel("Tip ve rol hücrelerine listede olmayan ifadeler de yazılabilir (örn. NESNE[count], crc16(from=2)).");
         hint.setForeground(Theme.muted());
         fieldBtns.add(hint);
         center.add(fieldBtns, BorderLayout.SOUTH);

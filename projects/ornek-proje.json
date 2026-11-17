@@ -53,7 +53,7 @@
         "status" : "OK"
       },
       "KONUM" : {
-        "platformId" : "100",
+        "assetId" : "100",
         "lat" : "39.9334",
         "lon" : "32.8597",
         "altitude" : "0",
@@ -65,14 +65,14 @@
         "text" : "Merhaba"
       },
       "KOMUT" : {
-        "platformId" : "100",
+        "assetId" : "100",
         "command" : "HOLD",
         "lat" : "0",
         "lon" : "0",
         "urgent" : "false"
       },
-      "HEDEF_LISTESI" : {
-        "tracks" : "0"
+      "NESNE_LISTESI" : {
+        "items" : "0"
       },
       "REGISTERLAR" : {
         "start" : "0",
@@ -138,7 +138,7 @@
         "status" : "OK"
       },
       "KONUM" : {
-        "platformId" : "100",
+        "assetId" : "100",
         "lat" : "39.9334",
         "lon" : "32.8597",
         "altitude" : "0",
@@ -150,14 +150,14 @@
         "text" : "Merhaba"
       },
       "KOMUT" : {
-        "platformId" : "100",
+        "assetId" : "100",
         "command" : "GOTO",
         "lat" : "41.01",
         "lon" : "28.97",
         "urgent" : "true"
       },
-      "HEDEF_LISTESI" : {
-        "tracks" : "0"
+      "NESNE_LISTESI" : {
+        "items" : "0"
       },
       "REGISTERLAR" : {
         "start" : "0",
@@ -382,5 +382,5 @@
     "modbusTables" : null,
     "oidTable" : null
   } ],
-  "scenario" : "# Örnek senaryo: TCP sunucu ve istemciyi başlatır, komut gönderip yanıt bekler.\nstart \"Örnek TCP sunucu\"\nstart \"Örnek TCP istemci\"\nwait 300\nrepeat 3\n  send \"Örnek TCP istemci\" KONUM speed=120 heading=45\n  waitfor \"Örnek TCP sunucu\" KONUM 2000\n  expect \"Örnek TCP sunucu\" KONUM speed=120\n  wait 500\nend\nsend \"Örnek TCP istemci\" HEDEF_LISTESI tracks=2 tracks[1].identity=HOSTILE\nlog Bitti\n"
+  "scenario" : "# Örnek senaryo: TCP sunucu ve istemciyi başlatır, komut gönderip yanıt bekler.\nstart \"Örnek TCP sunucu\"\nstart \"Örnek TCP istemci\"\nwait 300\nrepeat 3\n  send \"Örnek TCP istemci\" KONUM speed=120 heading=45\n  waitfor \"Örnek TCP sunucu\" KONUM 2000\n  expect \"Örnek TCP sunucu\" KONUM speed=120\n  wait 500\nend\nsend \"Örnek TCP istemci\" NESNE_LISTESI items=2 items[1].identity=BRAVO\nlog Bitti\n"
 }

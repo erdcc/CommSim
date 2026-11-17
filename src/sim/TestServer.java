@@ -6,7 +6,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * Gelen mesajlari ekrana yazan konsol TCP sunucusu (platform gate'lerini denemek icin).
+ * Gelen mesajlari ekrana yazan konsol TCP sunucusu (asset uplink'lerini denemek icin).
  * Kullanim: ./server.sh [port] [messages.def]
  */
 public final class TestServer {

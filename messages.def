@@ -8,32 +8,32 @@
 #
 # Tum mesajlar haritadaki ayni node nesnesinden turetilir: bir node secilince,
 # alan adi (veya @ile verilen ad) node ozelligiyle eslesen alanlar otomatik
-# doldurulur. Haritaya iki tur node eklenir: PLATFORM ve RADAR.
+# doldurulur. Haritaya iki tur node eklenir: ASSET ve SENSOR.
 #
-# Haritadaki her PLATFORM bir TCP istemci gate'idir (Bağlan ile sunucuya baglanir).
-# Haritadaki RADARLAR tum platformlarca tespit edilmis sayilir; YAYIN_LISTESI
-# mesajiyla her platform kendi gate'inden radar kayitlarini sunucuya gonderir.
+# Haritadaki her ASSET bir TCP istemci uplink'idir (Bağlan ile sunucuya baglanir).
+# Haritadaki SENSOR'LAR tum asset'lerce tespit edilmis sayilir; YAYIN_LISTESI
+# mesajiyla her asset kendi uplink'inden sensor kayitlarini sunucuya gonderir.
 #
 # Node ozellikleri:
-#   nodeId, nodeType (PLATFORM|RADAR), name, identity,
+#   nodeId, nodeType (ASSET|SENSOR), name, identity,
 #   lat, lon, altitude, speed, heading
 
 # 'struct': liste alanlarinin eleman sablonu. 'list <STRUCT> <alan>' ile kullanilir.
-# 'radars' listesi haritadaki TUM radar node'larindan otomatik uretilir
-# (her kayit alanlari node ozelliklerinden dolar). 'platforms' de ayni sekilde.
-struct RADAR_KAYDI
+# 'sensors' listesi haritadaki TUM sensor node'larindan otomatik uretilir
+# (her kayit alanlari node ozelliklerinden dolar). 'assets' de ayni sekilde.
+struct SENSOR_KAYDI
   int    nodeId
   string name
-  enum   identity PENDING|FRIEND|HOSTILE|NEUTRAL|UNKNOWN = UNKNOWN
+  enum   identity PENDING|ALPHA|BRAVO|CHARLIE|UNKNOWN = UNKNOWN
   double lat
   double lon
   double altitude
 
 message 1 NODE_UPDATE
   int    nodeId   = 1
-  enum   nodeType PLATFORM|RADAR = PLATFORM
+  enum   nodeType ASSET|SENSOR = ASSET
   string name     = ALPHA
-  enum   identity PENDING|FRIEND|HOSTILE|NEUTRAL|UNKNOWN = UNKNOWN
+  enum   identity PENDING|ALPHA|BRAVO|CHARLIE|UNKNOWN = UNKNOWN
   double lat      = 39.9334
   double lon      = 32.8597
   double altitude = 0
@@ -42,25 +42,25 @@ message 1 NODE_UPDATE
 
 message 2 NODE_DELETE
   int  nodeId   = 1
-  enum nodeType PLATFORM|RADAR = PLATFORM
+  enum nodeType ASSET|SENSOR = ASSET
 
 message 3 TEXT_MESSAGE
   int    nodeId   = 1
-  enum   nodeType PLATFORM|RADAR = PLATFORM
+  enum   nodeType ASSET|SENSOR = ASSET
   string sender   @name = SIM
   string text     = Merhaba
 
 message 4 COMMAND
   int    nodeId   = 1
-  enum   nodeType PLATFORM|RADAR = PLATFORM
-  enum   command  GOTO|HOLD|RTB|ENGAGE = HOLD
+  enum   nodeType ASSET|SENSOR = ASSET
+  enum   command  GOTO|HOLD|RETURN|ACTIVATE = HOLD
   double lat      = 0
   double lon      = 0
   bool   urgent   = false
 
 message 5 NAVIGASYON
   int    nodeId   = 1
-  enum   nodeType PLATFORM|RADAR = PLATFORM
+  enum   nodeType ASSET|SENSOR = ASSET
   double lat      = 39.9334
   double lon      = 32.8597
   double altitude = 0
@@ -69,5 +69,5 @@ message 5 NAVIGASYON
 
 message 6 YAYIN_LISTESI
   int  nodeId   = 1
-  enum nodeType PLATFORM|RADAR = PLATFORM
-  list RADAR_KAYDI radars
+  enum nodeType ASSET|SENSOR = ASSET
+  list SENSOR_KAYDI sensors

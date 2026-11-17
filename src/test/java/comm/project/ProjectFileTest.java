@@ -42,7 +42,7 @@ class ProjectFileTest {
         comm.core.MessagePreset preset = new comm.core.MessagePreset();
         preset.name = "Eve dön";
         preset.message = "KOMUT";
-        preset.values.put("command", "RTB");
+        preset.values.put("command", "RETURN");
         c.presets.add(preset);
         ProjectFile.EndpointEntry e = new ProjectFile.EndpointEntry();
         e.config = c;
@@ -70,10 +70,10 @@ class ProjectFileTest {
         assertEquals(true, d.tcpKeepAlive);
         assertEquals(false, d.multicastLoopback);
         assertTrue(d.presets instanceof java.util.concurrent.CopyOnWriteArrayList);
-        assertEquals("RTB", d.presets.get(0).values.get("command"));
+        assertEquals("RETURN", d.presets.get(0).values.get("command"));
         EndpointConfig copy = d.copy();
         copy.presets.get(0).values.put("command", "HOLD");
-        assertEquals("RTB", d.presets.get(0).values.get("command")); // kopya bagimsiz
+        assertEquals("RETURN", d.presets.get(0).values.get("command")); // kopya bagimsiz
         assertEquals(false, copy.tcpNoDelay);
         assertEquals("7", q.endpoints.get(0).txMessages.get("KONUM").get("speed"));
         assertEquals(Integer.valueOf(65535), q.endpoints.get(0).modbusTables.get("HOLDING").get(3));
@@ -82,16 +82,16 @@ class ProjectFileTest {
 
     @Test void messageValuesRoundTripAsText() throws Exception {
         Schema s = SchemaParser.parse(Paths.get("schemas/ornek.def"));
-        MessageDef m = s.byName("HEDEF_LISTESI");
+        MessageDef m = s.byName("NESNE_LISTESI");
         Map<String, Object> v = Values.complete(m.body, new LinkedHashMap<>());
-        Values.applyTexts(m.body, v, "", Collections.singletonMap("tracks", "2"));
+        Values.applyTexts(m.body, v, "", Collections.singletonMap("items", "2"));
         Map<String, String> set = new LinkedHashMap<>();
-        set.put("tracks[1].identity", "HOSTILE");
-        set.put("tracks[0].lat", "41.5");
+        set.put("items[1].identity", "BRAVO");
+        set.put("items[0].lat", "41.5");
         assertTrue(Values.applyTexts(m.body, v, "", set).isEmpty());
 
         Map<String, String> texts = Values.toTexts(m.body, v, "");
-        assertEquals("2", texts.get("tracks"));
+        assertEquals("2", texts.get("items"));
         Map<String, Object> w = Values.complete(m.body, new LinkedHashMap<>());
         List<String> problems = Values.applyTexts(m.body, w, "", texts);
         assertTrue(problems.isEmpty(), problems.toString());

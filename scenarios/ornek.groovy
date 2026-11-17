@@ -26,15 +26,15 @@ if (komut.urgent == "true") {
 expect sunucu, "KOMUT", command: "GOTO", lat: 41.01
 
 // --- Listeler: hedef listesini koddan üret ---
-def hedefler = ["FRIEND", "HOSTILE", "NEUTRAL"]
-def atama = [tracks: hedefler.size()]
-hedefler.eachWithIndex { kimlik, i ->
-    atama["tracks[$i].identity"] = kimlik
-    atama["tracks[$i].trackId"] = 1000 + i
+def nesneler = ["ALPHA", "BRAVO", "CHARLIE"]
+def atama = [items: nesneler.size()]
+nesneler.eachWithIndex { kimlik, i ->
+    atama["items[$i].identity"] = kimlik
+    atama["items[$i].itemId"] = 1000 + i
 }
-send istemci, "HEDEF_LISTESI", atama
-def liste = waitFor(sunucu, "HEDEF_LISTESI", 2000)
-check liste["tracks[2].identity"] == "NEUTRAL", "3. hedef NEUTRAL"
+send istemci, "NESNE_LISTESI", atama
+def liste = waitFor(sunucu, "NESNE_LISTESI", 2000)
+check liste["items[2].identity"] == "CHARLIE", "3. hedef CHARLIE"
 
 // --- Modbus: slave tablosuna yaz, master ile oku ---
 mbset "Örnek Modbus slave", "hr", 20, [10, 20, 30]

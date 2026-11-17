@@ -4,7 +4,7 @@ import sim.Model.FieldDef;
 import sim.Model.Message;
 import sim.Model.MessageDef;
 import sim.Model.MessageListener;
-import sim.Node.GateState;
+import sim.Node.UplinkState;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Ana pencere. Haritadaki her platform bir TCP istemci gate'idir; radarlar tum platformlarca
+ * Ana pencere. Haritadaki her asset bir TCP istemci uplink'idir; sensor'lar tum asset'lerce
  * tespit edilmis sayilir ve YAYIN_LISTESI mesajiyla sunucuya bildirilir.
  */
 public class SimulatorFrame extends JFrame {
@@ -31,8 +31,8 @@ public class SimulatorFrame extends JFrame {
     private final MapPanel map;
     private final List<MessageListener> listeners = new ArrayList<>();
 
-    // platform gate'leri (sadece EDT)
-    private final Map<Node, Gate> gates = new LinkedHashMap<>();
+    // asset uplink'leri (sadece EDT)
+    private final Map<Node, Uplink> uplinks = new LinkedHashMap<>();
     private boolean armed;
     private String connHost = "";
     private int connPort;
@@ -50,7 +50,7 @@ public class SimulatorFrame extends JFrame {
 
     // gecmis
     private final DefaultTableModel historyModel = new DefaultTableModel(
-            new String[] {"Zaman", "Yön", "Gate", "Mesaj", "İçerik"}, 0) {
+            new String[] {"Zaman", "Yön", "Uplink", "Mesaj", "İçerik"}, 0) {
         @Override public boolean isCellEditable(int r, int c) { return false; }
     };
     private final JTable history = new JTable(historyModel);
@@ -58,14 +58,14 @@ public class SimulatorFrame extends JFrame {
     private final JTextArea detail = new JTextArea();
     private final JLabel status = new JLabel(" ");
 
-    /** Bir platformun TCP istemci baglantisi. */
-    private final class Gate implements TcpTransport.Listener {
+    /** Bir asset'in TCP istemci baglantisi. */
+    private final class Uplink implements TcpTransport.Listener {
         final Node node;
         final TcpTransport tcp = new TcpTransport(this);
 
-        Gate(Node node) { this.node = node; }
+        Uplink(Node node) { this.node = node; }
 
-        private boolean current() { return gates.get(node) == this; }
+        private boolean current() { return uplinks.get(node) == this; }
 
         @Override public void onPacket(byte[] data, String from) {
             SwingUtilities.invokeLater(() -> {
@@ -81,7 +81,7 @@ public class SimulatorFrame extends JFrame {
         @Override public void onConnected() {
             SwingUtilities.invokeLater(() -> {
                 if (!current()) return;
-                node.gate = GateState.CONNECTED;
+                node.uplink = UplinkState.CONNECTED;
                 map.refresh();
                 setStatus(node.name + ": sunucuya bağlandı");
                 publishTo(this, false);
@@ -95,7 +95,7 @@ public class SimulatorFrame extends JFrame {
         @Override public void onClosed() {
             SwingUtilities.invokeLater(() -> {
                 if (!current()) return;
-                node.gate = GateState.FAILED;
+                node.uplink = UplinkState.FAILED;
                 map.refresh();
             });
         }
@@ -137,7 +137,7 @@ public class SimulatorFrame extends JFrame {
 
     private JComponent buildLeft() {
         JPanel conn = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
-        conn.setBorder(BorderFactory.createTitledBorder("Sunucu (TCP) · her platform bir gate"));
+        conn.setBorder(BorderFactory.createTitledBorder("Sunucu (TCP) · her asset bir uplink"));
         conn.add(new JLabel("Adres")); conn.add(host);
         conn.add(new JLabel("Port"));  conn.add(port);
         conn.add(connect);
@@ -145,7 +145,7 @@ public class SimulatorFrame extends JFrame {
         JButton send = new JButton("Gönder");
         JButton reset = new JButton("Varsayılanlar");
         JButton fromNode = new JButton("Node'dan doldur");
-        JButton publish = new JButton("Yayın listesini tüm platformlardan gönder");
+        JButton publish = new JButton("Yayın listesini tüm asset'lerden gönder");
         send.addActionListener(e -> send());
         reset.addActionListener(e -> rebuildForm());
         fromNode.addActionListener(e -> {
@@ -167,7 +167,7 @@ public class SimulatorFrame extends JFrame {
         buttons.add(row2);
 
         JPanel top = new JPanel(new BorderLayout(4, 4));
-        top.setBorder(BorderFactory.createTitledBorder("Mesaj Gönder (seçili platformun gate'i üzerinden)"));
+        top.setBorder(BorderFactory.createTitledBorder("Mesaj Gönder (seçili asset'in uplink'i üzerinden)"));
         top.add(messageBox, BorderLayout.NORTH);
         top.add(new JScrollPane(form), BorderLayout.CENTER);
         top.add(buttons, BorderLayout.SOUTH);
@@ -258,46 +258,46 @@ public class SimulatorFrame extends JFrame {
         }
     }
 
-    // ---------- node degisiklikleri / gate'ler ----------
+    // ---------- node degisiklikleri / uplink'ler ----------
 
     private void onNodeChanged(Node n, MapPanel.Change change) {
-        boolean platform = n.type == Node.Type.PLATFORM;
+        boolean asset = n.type == Node.Type.ASSET;
         switch (change) {
             case ADDED -> {
-                if (!platform) publishSoon();
-                else if (armed) openGate(n);
+                if (!asset) publishSoon();
+                else if (armed) openUplink(n);
             }
             case DELETED -> {
-                if (platform) closeGate(n);
+                if (asset) closeUplink(n);
                 else publishSoon();
             }
-            case MOVED, EDITED -> { if (!platform) publishSoon(); }
+            case MOVED, EDITED -> { if (!asset) publishSoon(); }
         }
         refreshListPreview();
     }
 
-    private void openGate(Node n) {
-        Gate g = new Gate(n);
-        gates.put(n, g);
-        n.gate = GateState.CONNECTING;
+    private void openUplink(Node n) {
+        Uplink g = new Uplink(n);
+        uplinks.put(n, g);
+        n.uplink = UplinkState.CONNECTING;
         g.tcp.connect(connHost, connPort);
         map.refresh();
     }
 
-    private void closeGate(Node n) {
-        Gate g = gates.remove(n);
+    private void closeUplink(Node n) {
+        Uplink g = uplinks.remove(n);
         if (g != null) g.tcp.close();
-        n.gate = GateState.OFF;
+        n.uplink = UplinkState.OFF;
     }
 
     private void toggleConnection() {
         if (!connect.isSelected()) {
             armed = false;
             publishTimer.stop();
-            for (Node n : new ArrayList<>(gates.keySet())) closeGate(n);
+            for (Node n : new ArrayList<>(uplinks.keySet())) closeUplink(n);
             map.refresh();
             setConnected(false);
-            setStatus("Tüm gate'ler kapatıldı");
+            setStatus("Tüm uplink'ler kapatıldı");
             return;
         }
         try {
@@ -313,11 +313,11 @@ public class SimulatorFrame extends JFrame {
         setConnected(true);
         int count = 0;
         for (Node n : map.nodes()) {
-            if (n.type == Node.Type.PLATFORM) { openGate(n); count++; }
+            if (n.type == Node.Type.ASSET) { openUplink(n); count++; }
         }
         setStatus(count == 0
-                ? "Hazır: eklenen her platform " + connHost + ":" + connPort + " adresine bağlanacak"
-                : count + " platform gate'i " + connHost + ":" + connPort + " adresine bağlanıyor ...");
+                ? "Hazır: eklenen her asset " + connHost + ":" + connPort + " adresine bağlanacak"
+                : count + " asset uplink'i " + connHost + ":" + connPort + " adresine bağlanıyor ...");
     }
 
     private void setConnected(boolean on) {
@@ -334,13 +334,13 @@ public class SimulatorFrame extends JFrame {
     }
 
     private void publishAll() {
-        for (Gate g : gates.values()) {
-            if (g.node.gate == GateState.CONNECTED) publishTo(g, true);
+        for (Uplink g : uplinks.values()) {
+            if (g.node.uplink == UplinkState.CONNECTED) publishTo(g, true);
         }
     }
 
-    /** Platformun YAYIN_LISTESI mesajini (tum radar kayitlariyla) kendi gate'inden gonderir. */
-    private void publishTo(Gate g, boolean sendEmpty) {
+    /** Assetun YAYIN_LISTESI mesajini (tum sensor kayitlariyla) kendi uplink'inden gonderir. */
+    private void publishTo(Uplink g, boolean sendEmpty) {
         MessageDef def = defs.stream().filter(d -> d.name().equals(PUBLISH_MESSAGE)).findFirst().orElse(null);
         if (def == null) {
             setStatus(PUBLISH_MESSAGE + " mesajı messages.def içinde tanımlı değil");
@@ -368,11 +368,11 @@ public class SimulatorFrame extends JFrame {
         }
     }
 
-    /** Liste alanini haritadan uretir. 'radars' tum radar node'lari, 'platforms' tum platformlar. */
+    /** Liste alanini haritadan uretir. 'sensors' tum sensor node'lari, 'assets' tum asset'ler. */
     private List<Map<String, Object>> listValue(FieldDef f) {
         Node.Type type = switch (f.bindKey()) {
-            case "radars" -> Node.Type.RADAR;
-            case "platforms" -> Node.Type.PLATFORM;
+            case "sensors" -> Node.Type.SENSOR;
+            case "assets" -> Node.Type.ASSET;
             default -> null;
         };
         List<Map<String, Object>> out = new ArrayList<>();
@@ -412,9 +412,9 @@ public class SimulatorFrame extends JFrame {
         MessageDef def = (MessageDef) messageBox.getSelectedItem();
         if (def == null) return;
         Node src = map.getSelected();
-        Gate gate = src == null ? null : gates.get(src);
-        if (gate == null) {
-            setStatus("Göndermek için haritada bir platform seçin (Bağlan açık olmalı)");
+        Uplink uplink = src == null ? null : uplinks.get(src);
+        if (uplink == null) {
+            setStatus("Göndermek için haritada bir asset seçin (Bağlan açık olmalı)");
             return;
         }
         try {
@@ -433,7 +433,7 @@ public class SimulatorFrame extends JFrame {
                 m.values().put(f.name(), Model.parseValue(f, text));
             }
             byte[] data = codec.encode(m);
-            gate.tcp.send(data);
+            uplink.tcp.send(data);
             record(m, data, data.length, false, src.name + " → " + connHost + ":" + connPort);
             setStatus(src.name + ": " + def.name() + " gönderildi (" + data.length + " bayt)");
         } catch (IllegalArgumentException | IOException e) {
@@ -464,14 +464,14 @@ public class SimulatorFrame extends JFrame {
         if (n > 0) setStatus(def.name() + ": " + n + " alan '" + o.name + "' node'undan dolduruldu");
     }
 
-    private void record(Message m, byte[] data, int length, boolean incoming, String gate) {
+    private void record(Message m, byte[] data, int length, boolean incoming, String uplink) {
         StringBuilder d = new StringBuilder(m.def().name() + "  (id " + m.def().id() + ", " + length + " bayt)\n"
-                + "Gate: " + gate + "\n\n");
+                + "Uplink: " + uplink + "\n\n");
         m.values().forEach((k, v) -> d.append(String.format("%-12s %s%n", k, Model.describe(v))));
         d.append("\nHam veri:\n").append(Codec.hex(data, length));
         details.add(d.toString());
         historyModel.addRow(new Object[] {LocalTime.now().format(TIME), incoming ? "RX" : "TX",
-                gate, m.def().name(), m.summary()});
+                uplink, m.def().name(), m.summary()});
         int last = historyModel.getRowCount() - 1;
         history.scrollRectToVisible(history.getCellRect(last, 0, true));
         for (MessageListener l : listeners) l.onMessage(m, incoming);
